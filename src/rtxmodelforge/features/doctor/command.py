@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typer
+from typer import Exit
 from rich.live import Live
 from rich.table import Table
 
@@ -47,6 +48,6 @@ def doctor() -> None:
         console.print(
             "\n[bold red]✘ Alguns checks críticos falharam.[/bold red] Verifique os detalhes acima."
         )
-        raise typer.Exit(1)
+        raise Exit(1)
     else:
         console.print("\n[bold green]✔ Ambiente pronto para uso![/bold green]")

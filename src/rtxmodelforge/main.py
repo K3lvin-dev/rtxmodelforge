@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 import typer
+from typer import Exit
 
 from rtxmodelforge import __version__
 from rtxmodelforge.features.build.command import build
@@ -11,7 +12,7 @@ from rtxmodelforge.features.doctor.command import doctor
 from rtxmodelforge.features.engines.delete_command import delete
 from rtxmodelforge.features.engines.list_command import list_engines
 from rtxmodelforge.features.login.command import login
-from rtxmodelforge.features.serve.command import serve
+from rtxmodelforge.shared.console import console
 
 app = typer.Typer(
     name="rtxforge",
@@ -20,10 +21,12 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"rtxforge {__version__}")
-        raise typer.Exit()
+        console.print(f"rtxforge {__version__}")
+        raise Exit()
+
 
 @app.callback()
 def main(
@@ -32,6 +35,7 @@ def main(
     ),
 ) -> None:
     pass
+
 
 app.command()(build)
 app.command()(serve)
