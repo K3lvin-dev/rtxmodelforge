@@ -5,22 +5,22 @@ import sys
 
 
 def run() -> None:
-    """Roda Ruff e Pyright em sequência."""
-    print("--- 🖌️ Formatação e Lint (Ruff) ---")
+    """Run Ruff and Pyright in sequence."""
+    print("--- Formatting and Linting (Ruff) ---")
     try:
-        # Formatação
+        # Formatting
         subprocess.run(["uv", "run", "ruff", "format", "src"], check=True)
-        # Linting e Correção
+        # Linting and Fixes
         subprocess.run(["uv", "run", "ruff", "check", "src", "--fix"], check=True)
 
-        print("\n--- 🧠 Verificação de Tipagem (Pyright) ---")
-        # Tipagem
+        print("\n--- Type Checking (Pyright) ---")
+        # Type Checking
         subprocess.run(["uv", "run", "pyright", "src"], check=True)
 
-        print("\n[bold green]✔ Código está CLEAN, DRY e TIPO-SEGURO![/bold green]")
+        print("\nValidation successful.")
 
     except subprocess.CalledProcessError as e:
-        print(f"\n[red]✘ Erro durante a validação:[/red] {e}")
+        print(f"\nError during validation: {e}")
         sys.exit(e.returncode)
 
 
