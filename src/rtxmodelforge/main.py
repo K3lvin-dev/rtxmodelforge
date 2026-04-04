@@ -8,6 +8,8 @@ from rtxmodelforge.features.login.command import login
 from rtxmodelforge.features.engines.list_command import list_engines
 from rtxmodelforge.features.engines.delete_command import delete
 
+from rtxmodelforge.features.build.command import build
+
 app = typer.Typer(
     name="rtxforge",
     help="CLI para orquestrar o pipeline TensorRT-LLM em GPUs RTX.",
@@ -28,10 +30,7 @@ def main(
 ) -> None:
     pass
 
-@app.command()
-def build() -> None:
-    """[Em breve] Compila um engine TensorRT-LLM a partir de um modelo HuggingFace."""
-    typer.echo("Comando 'build' em breve.")
+app.command()(build)
 
 @app.command()
 def serve() -> None:
