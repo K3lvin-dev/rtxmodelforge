@@ -12,7 +12,7 @@ def login(
             "--token", 
             prompt="Informe seu HuggingFace Token (pressione Ctrl+C para cancelar)", 
             hide_input=True,
-            help="HuggingFace API Token (exige permissão de leitura)."
+            help="HuggingFace API Token (exibe apenas os 4 primeiros caracteres)."
         )
     ]
 ) -> None:
@@ -30,14 +30,17 @@ def login(
                 user_data = response.json()
                 name = user_data.get("name", "Usuário")
                 config.save_hf_token(token)
-                console.print(f"\n[bold green]✔ Autenticado com sucesso como: {name}[/bold green]")
+                console.print(f"\n[bold green]✔ Autenticado como: {name}[/bold green]")
             elif response.status_code == 401:
-                error_console.print("\n[bold red]✘ Token inválido.[/bold red] Verifique suas configurações no HuggingFace.")
-                raise typer.Exit(1)
+                error_console.print(
+                    "\n[bold red]✘ Token inválido.[/bold red] "
+                    "Verifique suas configurações no HuggingFace."
+                )
+                raise typer.Exit(1) from None
             else:
-                error_console.print(f"\n[bold red]✘ Erro na API do HuggingFace ({response.status_code}).[/bold red]")
-                raise typer.Exit(1)
+                error_console.print(f"\n[bold red]✘ Erro na API ({response.status_code}).[/bold red]")
+                raise typer.Exit(1) from None
                 
     except httpx.RequestError as e:
         error_console.print(f"\n[bold red]✘ Erro de conexão:[/bold red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None

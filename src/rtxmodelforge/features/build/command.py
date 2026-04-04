@@ -1,11 +1,17 @@
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Annotated
+
 import typer
-from rtxmodelforge.shared import gpu, types as shared_types
+
+from rtxmodelforge.features.build import pipeline
+from rtxmodelforge.features.build import types as build_types
+from rtxmodelforge.shared import gpu
+from rtxmodelforge.shared import types as shared_types
 from rtxmodelforge.shared.console import console, error_console
 from rtxmodelforge.shared.panels import header_panel, summary_panel
-from rtxmodelforge.features.build import pipeline, types as build_types
+
 
 def build(
     model_id: Annotated[

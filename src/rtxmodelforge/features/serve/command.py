@@ -18,22 +18,20 @@ def serve(
     
     meta = store.load_metadata(engine_path)
     if not meta:
-        error_console.print(f"[bold red]✘ Nenhum engine válido encontrado em:[/bold red] {engine_path}")
-        raise typer.Exit(1)
+        error_console.print(f"[bold red]✘ Nenhum engine válido em:[/bold red] {engine_path}")
+        raise typer.Exit(1) from None
         
     console.print(f"\n[bold blue]Iniciando Servidor de Inferência[/bold blue]")
     console.print(f"  Modelo:    [cyan]{meta.model_id}[/cyan]")
     console.print(f"  GPU:       [cyan]{meta.gpu_model}[/cyan]")
     console.print(f"  Formato:   [green]{meta.quantization.upper()}[/green]")
-    console.print(f"  Endereço:  [bold underline]http://{host}:{port}/v1/chat/completions[/bold underline]\n")
+    console.print(f"  Endereço:  [bold underline]http://{host}:{port}/v1/...[/bold underline]\n")
     
     if host == "0.0.0.0":
-        console.print("[yellow]⚠ Aviso: O servidor estará exposto na rede local sem autenticação.[/yellow]")
+        console.print("[yellow]⚠ Aviso: O servidor estará exposto na rede local.[/yellow]")
         if not typer.confirm("Deseja continuar?", default=False):
-            raise typer.Exit()
+            raise typer.Exit() from None
 
-    # O trtllm-serve é um binário que sobe o servidor C++ de alto desempenho
-    # Precisamos apontar para o diretório do engine e o tokenizer original do HF
     cmd = [
         "trtllm-serve",
         "serve",
@@ -50,7 +48,7 @@ def serve(
         console.print("\n[bold green]✔ Servidor encerrado pelo usuário.[/bold green]")
     except subprocess.CalledProcessError as e:
         error_console.print(f"[bold red]✘ Falha ao iniciar trtllm-serve:[/bold red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except FileNotFoundError:
-        error_console.print("[bold red]✘ Comando 'trtllm-serve' não encontrado.[/bold red] Verifique sua instalação.")
-        raise typer.Exit(1)
+        error_console.print("[bold red]✘ Comando 'trtllm-serve' não encontrado.[/bold red]")
+        raise typer.Exit(1) from None

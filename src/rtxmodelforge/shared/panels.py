@@ -1,13 +1,15 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
 from pathlib import Path
+from typing import TYPE_CHECKING
+
 from rich import box
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 if TYPE_CHECKING:
     from rtxmodelforge.shared.types import StageResult
+
 
 def header_panel(
     model_id: str,
@@ -26,6 +28,7 @@ def header_panel(
     )
     return Panel(content, box=box.ROUNDED, expand=False)
 
+
 def stage_table(stages: list[StageResult]) -> Table:
     table = Table(box=box.SIMPLE, show_header=True, header_style="bold magenta")
     table.add_column("Status", width=6, justify="center")
@@ -34,11 +37,10 @@ def stage_table(stages: list[StageResult]) -> Table:
 
     for stage in stages:
         table.add_row(
-            stage.status.value,
-            stage.label,
-            stage.duration_display if stage.status == "✔" else "—"
+            stage.status.value, stage.label, stage.duration_display if stage.status == "✔" else "—"
         )
     return table
+
 
 def summary_panel(engine_path: Path, next_commands: list[str]) -> Panel:
     commands_text = "\n".join([f"  [cyan]$ {cmd}[/cyan]" for cmd in next_commands])

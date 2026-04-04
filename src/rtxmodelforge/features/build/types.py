@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from rtxmodelforge.shared.types import GPUInfo, Quantization, QualityLabel
+
+from rtxmodelforge.shared.types import GPUInfo, QualityLabel, Quantization
+
 
 @dataclass
 class BuildConfig:
@@ -14,10 +17,14 @@ class BuildConfig:
     params_billions: float
     verbose: bool = False
 
+
 class CompilationError(Exception):
     """Levantado quando o build do engine no TensorRT-LLM falha."""
+
     pass
+
 
 class GatedModelError(Exception):
     """Levantado quando o modelo exige acesso autenticado via token."""
+
     pass
