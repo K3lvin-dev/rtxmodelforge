@@ -4,10 +4,9 @@ import typer
 from rtxmodelforge import __version__
 from rtxmodelforge.features.doctor.command import doctor
 from rtxmodelforge.features.login.command import login
-
 from rtxmodelforge.features.engines.list_command import list_engines
 from rtxmodelforge.features.engines.delete_command import delete
-
+from rtxmodelforge.features.build.command import build
 from rtxmodelforge.features.serve.command import serve
 from rtxmodelforge.features.chat.command import chat
 

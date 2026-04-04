@@ -1,11 +1,11 @@
 from __future__ import annotations
-from typing import Annotated, Optional
+from pathlib import Path
+from typing import Annotated
 import typer
-from rtxmodelforge.shared import gpu, types as shared_types, config as shared_config
+from rtxmodelforge.shared import gpu, types as shared_types
 from rtxmodelforge.shared.console import console, error_console
 from rtxmodelforge.shared.panels import header_panel, summary_panel
 from rtxmodelforge.features.build import pipeline, types as build_types
-from rtxmodelforge.features.engines import store
 
 def build(
     model_id: Annotated[
@@ -19,7 +19,7 @@ def build(
 ) -> None:
     """Compila um engine TensorRT-LLM otimizado para sua GPU RTX."""
     
-    console.print("[bold cyan]Iniciando processo de build para:[/bold cyan] " + model_id)
+    console.print(f"[bold cyan]Iniciando processo de build para:[/bold cyan] {model_id}")
     
     # 1. Detectar GPU
     gpu_info = gpu.detect_gpu()
@@ -27,12 +27,6 @@ def build(
         error_console.print("[bold red]✘ Nenhuma GPU NVIDIA compatível detectada.[/bold red]")
         raise typer.Exit(1)
         
-    # 2. Recomendação de Quantização
-    # Precisamos de uma estimativa de parâmetros. Como não baixamos ainda,
-    # tentaremos obter via API do HF ou usaremos um valor default conservador
-    # para a primeira passagem de recomendação, ou solicitaremos ao usuário.
-    # TODO: Refinar busca de params_billions antes do download se possível via Hub API.
-    
     # Por enquanto, usaremos 8.0B como exemplo para demonstração ou pediremos
     # No pipeline real, Stage 2 atualiza este valor.
     params_est = 8.0 
@@ -77,15 +71,13 @@ def build(
         
     except shared_types.UnsupportedGPUError as e:
         error_console.print(f"[bold red]✘ GPU não suportada:[/bold red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except shared_types.InsufficientVRAMError as e:
         error_console.print(f"[bold red]✘ VRAM insuficiente:[/bold red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except Exception as e:
         error_console.print(f"[bold red]✘ Falha crítica no pipeline:[/bold red] {e}")
         if verbose:
             import traceback
             traceback.print_exc()
-        raise typer.Exit(1)
-
-from pathlib import Path
+        raise typer.Exit(1) from None
