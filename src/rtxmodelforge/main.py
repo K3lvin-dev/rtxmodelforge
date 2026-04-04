@@ -2,6 +2,8 @@ from __future__ import annotations
 from typing import Optional
 import typer
 from rtxmodelforge import __version__
+from rtxmodelforge.features.doctor.command import doctor
+from rtxmodelforge.features.login.command import login
 
 app = typer.Typer(
     name="rtxforge",
@@ -38,15 +40,8 @@ def chat() -> None:
     """[Em breve] Inicia um chat interativo no terminal."""
     typer.echo("Comando 'chat' em breve.")
 
-@app.command()
-def login() -> None:
-    """[Em breve] Autentica no HuggingFace."""
-    typer.echo("Comando 'login' em breve.")
-
-@app.command()
-def doctor() -> None:
-    """[Em breve] Verifica a saúde do ambiente (GPU, Driver, CUDA)."""
-    typer.echo("Comando 'doctor' em breve.")
+app.command()(login)
+app.command()(doctor)
 
 @app.command(name="list")
 def list_engines() -> None:
