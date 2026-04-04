@@ -10,28 +10,9 @@ from typer import Exit
 
 from rtxmodelforge.features.engines import store
 from rtxmodelforge.shared.console import console, error_console
-
-# Janelas tentadas em ordem decrescente até uma caber na VRAM disponível.
-# Cada valor deve ser múltiplo de tokens_per_block (32) para usar blocos inteiros.
-_ATTENTION_WINDOW_CANDIDATES = [1440, 960, 768, 512, 256]
-
-
-def _load_llm(LLM: type, engine_path: str, KvCacheConfig: type) -> tuple:
-    """Tenta carregar o engine com janelas de atenção progressivamente menores."""
-    last_err: Exception = RuntimeError("Nenhuma janela de atenção foi tentada.")
-    for window in _ATTENTION_WINDOW_CANDIDATES:
-        try:
-            llm = LLM(
-                model=engine_path,
-                kv_cache_config=KvCacheConfig(max_attention_window=[window]),
-            )
-            return llm, window
-        except RuntimeError as e:
-            if "KV cache" in str(e) or "Executor worker" in str(e) or "window" in str(e).lower():
-                last_err = e
-                continue
-            raise
-    raise last_err
+from rtxmodelforge.shared.gpu_profiler import profile_gpu
+from rtxmodelforge.shared.panels import runtime_dashboard
+from rtxmodelforge.shared.runtime_planner import format_efficiency, plan_runtime
 
 
 def chat(
@@ -54,6 +35,14 @@ def chat(
         )
         raise Exit(1)
 
+    if meta.engine_mode != "chat":
+        error_console.print(
+            f"[bold yellow]⚠ Este engine foi compilado para modo '{meta.engine_mode}'.[/bold yellow]\n"
+            "  Para chat, use um engine compilado com modo 'chat' (batch=1).\n"
+            "  Dica: use o diretório com sufixo '-chat', ex: .../fp8-chat/"
+        )
+        raise Exit(1)
+
     try:
         from tensorrt_llm._tensorrt_engine import LLM  # pyright: ignore[reportMissingImports]
         from tensorrt_llm.llmapi import (
@@ -72,8 +61,36 @@ def chat(
     )
 
     try:
+        # Detectar GPU e calcular plano de runtime
+        gpu_profile = profile_gpu()
+        if gpu_profile is None:
+            error_console.print("[bold red]✘ GPU não detectada.[/bold red]")
+            raise Exit(1)
+
+        runtime_plan = plan_runtime(
+            profile=gpu_profile,
+            model_id=meta.model_id,
+            quantization_str=meta.quantization.lower(),
+            params_b=meta.params_billions,
+            engine_mode=meta.engine_mode,
+            max_batch_size=meta.max_batch_size,
+            engine_size_gb=meta.engine_size_gb,
+        )
+
+        # Exibir dashboard antes de carregar o engine
+        console.print(runtime_dashboard(runtime_plan))
+
+        if runtime_plan.vram_warning:
+            console.print(f"[bold yellow]⚠ Aviso:[/bold yellow] {runtime_plan.vram_warning}\n")
+
         with console.status("[dim]Carregando engine...[/dim]", spinner="dots"):
-            llm, window = _load_llm(LLM, str(engine_path), KvCacheConfig)
+            llm = LLM(
+                model=str(engine_path),
+                kv_cache_config=KvCacheConfig(
+                    max_attention_window=[runtime_plan.max_attention_window]
+                ),
+            )
+
         tokenizer = AutoTokenizer.from_pretrained(meta.model_id)
 
         history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
@@ -81,7 +98,7 @@ def chat(
         console.print(
             f"\n[bold blue]Chat Iniciado![/bold blue] "
             f"[dim]({meta.model_id} · {meta.quantization.upper()} · "
-            f"contexto {window} tokens)[/dim]\n"
+            f"janela {runtime_plan.max_attention_window} tokens)[/dim]\n"
             "Digite [bold magenta]/exit[/bold magenta] para sair "
             "ou [bold magenta]/clear[/bold magenta] para reiniciar.\n"
         )
@@ -118,8 +135,13 @@ def chat(
             n_tokens = len(tokenizer.encode(response, add_special_tokens=False))
             tps = n_tokens / elapsed if elapsed > 0 else 0
 
+            efficiency = format_efficiency(tps, runtime_plan.theoretical_max_tps)
+            efficiency_str = f" · {efficiency}" if efficiency else ""
+
             console.print(Markdown(response))
-            console.print(f"[dim]⚡ {tps:.1f} tok/s · {n_tokens} tokens · {elapsed:.2f}s[/dim]\n")
+            console.print(
+                f"[dim]⚡ {tps:.1f} tok/s{efficiency_str} · {n_tokens} tokens · {elapsed:.2f}s[/dim]\n"
+            )
 
             history.append({"role": "assistant", "content": response})
 

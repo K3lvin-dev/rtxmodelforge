@@ -5,7 +5,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
-CURRENT_SCHEMA_VERSION: Final[int] = 1
+CURRENT_SCHEMA_VERSION: Final[int] = 2
 
 
 class EngineMetadata(BaseModel):
@@ -22,7 +22,11 @@ class EngineMetadata(BaseModel):
     built_at: datetime = Field(default_factory=datetime.now)
     engine_path: str
     params_billions: float
-    vram_used_gb: float  # Estimativa estática: params * bytes_per_param * 1.3
-    engine_size_gb: float  # Tamanho real em disco
+    vram_used_gb: float
+    engine_size_gb: float
     architecture: str  # Ex: "llama", "qwen2"
     max_seq_len: int = 4096
+    # campos adicionados em schema v2
+    engine_mode: str = "chat"  # "chat" | "serve"
+    max_batch_size: int = 1
+    build_plan_summary: str = ""  # resumo legivel do BuildPlan para display

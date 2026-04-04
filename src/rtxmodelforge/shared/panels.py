@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rich import box
 from rich.panel import Panel
 from rich.table import Table
 
 if TYPE_CHECKING:
+    from rtxmodelforge.shared.build_planner import BuildPlan
+    from rtxmodelforge.shared.runtime_planner import RuntimePlan
     from rtxmodelforge.shared.types import StageResult
 
 
@@ -16,16 +18,32 @@ def header_panel(
     gpu: str,
     quantization: str,
     rationale: str,
-    time_estimate: str = "10–30 minutos",
+    time_estimate: str = "20–60 minutos (2 engines)",
+    chat_plan: Optional["BuildPlan"] = None,
+    serve_plan: Optional["BuildPlan"] = None,
 ) -> Panel:
     content = (
-        f"[bold blue]RTX Model Forge — Building Engine[/bold blue]\n"
+        f"[bold blue]RTX Model Forge — Building Engines[/bold blue]\n"
         f"Modelo:      [cyan]{model_id}[/cyan]\n"
         f"GPU:         [cyan]{gpu}[/cyan]\n"
         f"Formato:     [green]{quantization}[/green] ← automático\n"
         f"Motivo:      {rationale}\n"
         f"Estimativa:  [yellow]{time_estimate}[/yellow]. Não feche o terminal."
     )
+
+    if chat_plan and serve_plan:
+        content += (
+            f"\n\n[bold]Planos calculados:[/bold]\n"
+            f"  [cyan]Chat[/cyan]:  batch={chat_plan.max_batch_size} "
+            f"seq={chat_plan.max_seq_len} "
+            f"kv≈{chat_plan.kv_cache_gb:.1f}GB "
+            f"~[green]{chat_plan.theoretical_max_tps:.0f}[/green] tok/s teórico\n"
+            f"  [cyan]Serve[/cyan]: batch={serve_plan.max_batch_size} "
+            f"seq={serve_plan.max_seq_len} "
+            f"kv≈{serve_plan.kv_cache_gb:.1f}GB "
+            f"~[green]{serve_plan.theoretical_max_tps:.0f}[/green] tok/s teórico"
+        )
+
     return Panel(content, box=box.ROUNDED, expand=False)
 
 
@@ -42,11 +60,42 @@ def stage_table(stages: list[StageResult]) -> Table:
     return table
 
 
-def summary_panel(engine_path: Path, next_commands: list[str]) -> Panel:
+def summary_panel(engine_paths: list[Path], next_commands: list[str]) -> Panel:
+    paths_text = "\n".join([f"  [blue]{p}[/blue]" for p in engine_paths])
     commands_text = "\n".join([f"  [cyan]$ {cmd}[/cyan]" for cmd in next_commands])
     content = (
-        f"[bold green]✔ Engine compilado com sucesso![/bold green]\n\n"
-        f"Local: [blue]{engine_path}[/blue]\n\n"
+        f"[bold green]✔ Engines compilados com sucesso![/bold green]\n\n"
+        f"Locais:\n{paths_text}\n\n"
         f"Próximos passos:\n{commands_text}"
     )
     return Panel(content, style="bold green", box=box.ROUNDED, expand=False)
+
+
+def runtime_dashboard(plan: "RuntimePlan") -> Panel:
+    """Exibe painel de dashboard no startup do chat/serve com info de VRAM e performance."""
+    vram_pct = (
+        (plan.vram_total_gb - plan.vram_free_gb) / plan.vram_total_gb * 100
+        if plan.vram_total_gb > 0
+        else 0
+    )
+    vram_used_gb = plan.vram_total_gb - plan.vram_free_gb
+
+    content_lines = [
+        "[bold blue]RTX Model Forge · Runtime Dashboard[/bold blue]",
+        f"  GPU:        [cyan]{plan.gpu_name}[/cyan]",
+        f"  VRAM:       [yellow]{vram_used_gb:.1f}[/yellow] / {plan.vram_total_gb:.1f} GB "
+        f"({vram_pct:.0f}% alocada)",
+        f"  Engine:     [cyan]{plan.model_id}[/cyan] · [green]{plan.quantization}[/green] · "
+        f"modo [bold]{plan.mode.value}[/bold]",
+        f"  KV Cache:   {plan.max_attention_window} tokens · {plan.kv_cache_gb:.1f} GB",
+        f"  Janela:     {plan.max_attention_window} tokens",
+        f"  Batch:      {plan.max_batch_size}",
+        f"  Max teór.:  ~[green]{plan.theoretical_max_tps:.0f}[/green] tok/s",
+    ]
+
+    if plan.vram_warning:
+        content_lines.append("")
+        content_lines.append(f"  [bold yellow]⚠[/bold yellow] {plan.vram_warning}")
+
+    content = "\n".join(content_lines)
+    return Panel(content, box=box.ROUNDED, expand=False)

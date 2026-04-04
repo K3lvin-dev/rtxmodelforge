@@ -16,10 +16,10 @@ class EngineNotFoundError(Exception):
     pass
 
 
-def get_engine_dir(model_id: str, quantization: Quantization) -> Path:
-    """Retorna o path padrão para um engine (ex: engines/org/model/fp8/)."""
+def get_engine_dir(model_id: str, quantization: Quantization, mode: str = "chat") -> Path:
+    """Retorna o path padrão para um engine (ex: engines/org/model/fp8-chat/)."""
     settings = config.get_settings()
-    return settings.engines_dir / model_id / quantization.value
+    return settings.engines_dir / model_id / f"{quantization.value}-{mode}"
 
 
 def save_metadata(engine_path: Path, metadata: EngineMetadata) -> None:

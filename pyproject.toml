@@ -57,7 +57,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "C4", "ARG"]
-ignore = ["ARG001"]
+ignore = ["ARG001", "E501"]
 
 [tool.pyright]
 include = ["src"]
