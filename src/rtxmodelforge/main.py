@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 import os
 import sys
+
 
 # Ensure the venv-bundled NVIDIA cuBLASLt is loaded instead of the system's.
 # On systems with CUDA 13.2+ installed, the linker picks up libcublasLt from
@@ -12,7 +14,9 @@ def _ensure_bundled_cuda_libs() -> None:
     if os.environ.get("_RTXFORGE_CUDA_LIBS_SET"):
         return
     py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    venv_site = os.path.join(os.path.dirname(os.path.dirname(sys.executable)), "lib", py_ver, "site-packages")
+    venv_site = os.path.join(
+        os.path.dirname(os.path.dirname(sys.executable)), "lib", py_ver, "site-packages"
+    )
     for cu_dir in ("nvidia/cu13/lib", "nvidia/cu12/lib"):
         lib_dir = os.path.join(venv_site, cu_dir)
         if os.path.isdir(lib_dir) and any(f.startswith("libcublasLt") for f in os.listdir(lib_dir)):
@@ -22,6 +26,7 @@ def _ensure_bundled_cuda_libs() -> None:
             os.environ["_RTXFORGE_CUDA_LIBS_SET"] = "1"
             os.execv(sys.executable, [sys.executable] + sys.argv)
     os.environ["_RTXFORGE_CUDA_LIBS_SET"] = "1"
+
 
 _ensure_bundled_cuda_libs()
 

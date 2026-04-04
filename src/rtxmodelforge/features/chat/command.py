@@ -119,9 +119,7 @@ def chat(
             tps = n_tokens / elapsed if elapsed > 0 else 0
 
             console.print(Markdown(response))
-            console.print(
-                f"[dim]⚡ {tps:.1f} tok/s · {n_tokens} tokens · {elapsed:.2f}s[/dim]\n"
-            )
+            console.print(f"[dim]⚡ {tps:.1f} tok/s · {n_tokens} tokens · {elapsed:.2f}s[/dim]\n")
 
             history.append({"role": "assistant", "content": response})
 
