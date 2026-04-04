@@ -5,6 +5,9 @@ from rtxmodelforge import __version__
 from rtxmodelforge.features.doctor.command import doctor
 from rtxmodelforge.features.login.command import login
 
+from rtxmodelforge.features.engines.list_command import list_engines
+from rtxmodelforge.features.engines.delete_command import delete
+
 app = typer.Typer(
     name="rtxforge",
     help="CLI para orquestrar o pipeline TensorRT-LLM em GPUs RTX.",
@@ -42,16 +45,8 @@ def chat() -> None:
 
 app.command()(login)
 app.command()(doctor)
-
-@app.command(name="list")
-def list_engines() -> None:
-    """[Em breve] Lista os engines compilados."""
-    typer.echo("Comando 'list' em breve.")
-
-@app.command()
-def delete() -> None:
-    """[Em breve] Remove um engine compilado."""
-    typer.echo("Comando 'delete' em breve.")
+app.command(name="list")(list_engines)
+app.command()(delete)
 
 if __name__ == "__main__":
     app()
