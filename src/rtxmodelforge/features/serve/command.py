@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 from typing import Annotated
 import typer
+from typer import Exit
 from rtxmodelforge.shared.console import console, error_console
 from rtxmodelforge.features.engines import store
 
@@ -19,7 +20,7 @@ def serve(
     meta = store.load_metadata(engine_path)
     if not meta:
         error_console.print(f"[bold red]✘ Nenhum engine válido em:[/bold red] {engine_path}")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None
         
     console.print(f"\n[bold blue]Iniciando Servidor de Inferência[/bold blue]")
     console.print(f"  Modelo:    [cyan]{meta.model_id}[/cyan]")
@@ -30,7 +31,7 @@ def serve(
     if host == "0.0.0.0":
         console.print("[yellow]⚠ Aviso: O servidor estará exposto na rede local.[/yellow]")
         if not typer.confirm("Deseja continuar?", default=False):
-            raise typer.Exit() from None
+            raise Exit() from None
 
     cmd = [
         "trtllm-serve",
@@ -48,7 +49,7 @@ def serve(
         console.print("\n[bold green]✔ Servidor encerrado pelo usuário.[/bold green]")
     except subprocess.CalledProcessError as e:
         error_console.print(f"[bold red]✘ Falha ao iniciar trtllm-serve:[/bold red] {e}")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None
     except FileNotFoundError:
         error_console.print("[bold red]✘ Comando 'trtllm-serve' não encontrado.[/bold red]")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None

@@ -34,7 +34,12 @@ def run(config: build_types.BuildConfig) -> Path:
         stages[0].status = StageStatus.RUNNING
         update_display()
         start = time.time()
-        downloader.download_weights(config.model_id, engine_dir, config.verbose)
+        downloader.download_weights(
+            model_id=config.model_id,
+            target_dir=engine_dir,
+            hf_token=None,  # TODO: Obter do config.get_settings().hf_token
+            verbose=config.verbose,
+        )
         stages[0].duration_s = time.time() - start
         stages[0].status = StageStatus.DONE
 

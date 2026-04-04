@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated, Dict, List
 
 import typer
+from typer import Exit
 from rich.markdown import Markdown
 
 from rtxmodelforge.features.engines import store
@@ -28,7 +29,7 @@ def chat(
         error_console.print(
             f"[bold red]✘ Nenhum engine válido encontrado em:[/bold red] {engine_path}"
         )
-        raise typer.Exit(1)
+        raise Exit(1)
 
     try:
         from tensorrt_llm.llmapi import LLM, SamplingParams
@@ -37,7 +38,7 @@ def chat(
         error_console.print(
             "[bold red]✘ Dependências ausentes (tensorrt_llm ou transformers).[/bold red]"
         )
-        raise typer.Exit(1) from None
+        raise Exit(1) from None
 
     console.print(
         f"\n[bold green]Carregando motor e tokenizer...[/bold green] [cyan]{meta.model_id}[/cyan]"
@@ -80,7 +81,7 @@ def chat(
             # Inferência
             sampling_params = SamplingParams(max_tokens=max_tokens)
 
-            console.print("\n[bold green]Assistente:[/bold green]", end=" ", flush=True)
+            console.print("\n[bold green]Assistente:[/bold green]", end=" ")
 
             with console.status("[dim]Gerando...[/dim]", spinner="dots"):
                 outputs = llm.generate([prompt], sampling_params=sampling_params)
@@ -97,4 +98,4 @@ def chat(
 
     except Exception as e:
         error_console.print(f"[bold red]✘ Falha na inferência:[/bold red] {e}")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None

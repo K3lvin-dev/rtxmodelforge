@@ -14,7 +14,11 @@ from rtxmodelforge.shared.types import Quantization
 def build_engine(config: BuildConfig, engine_dir: Path) -> Path:
     """Orquestra a compilação do engine via LLM API."""
     try:
-        from tensorrt_llm.llmapi import LLM, QuantAlgo, QuantConfig
+        from tensorrt_llm.llmapi import (
+            LLM,
+            QuantAlgo,
+            QuantConfig,
+        )  # pyright: ignore[reportMissingImports]
     except ImportError:
         raise CompilationError(
             "TensorRT-LLM não encontrado. Verifique a instalação com 'rtxforge doctor'."

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Annotated
 import typer
+from typer import Exit
 import httpx
 from rtxmodelforge.shared import config
 from rtxmodelforge.shared.console import console, error_console
@@ -36,11 +37,11 @@ def login(
                     "\n[bold red]✘ Token inválido.[/bold red] "
                     "Verifique suas configurações no HuggingFace."
                 )
-                raise typer.Exit(1) from None
+                raise Exit(1) from None
             else:
                 error_console.print(f"\n[bold red]✘ Erro na API ({response.status_code}).[/bold red]")
-                raise typer.Exit(1) from None
+                raise Exit(1) from None
                 
     except httpx.RequestError as e:
         error_console.print(f"\n[bold red]✘ Erro de conexão:[/bold red] {e}")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None

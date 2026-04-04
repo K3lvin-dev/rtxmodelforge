@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer import Exit
 
 from rtxmodelforge.features.build import pipeline
 from rtxmodelforge.features.build import types as build_types
@@ -31,7 +32,7 @@ def build(
     gpu_info = gpu.detect_gpu()
     if not gpu_info:
         error_console.print("[bold red]✘ Nenhuma GPU NVIDIA compatível detectada.[/bold red]")
-        raise typer.Exit(1)
+        raise Exit(1)
         
     # Por enquanto, usaremos 8.0B como exemplo para demonstração ou pediremos
     # No pipeline real, Stage 2 atualiza este valor.
@@ -50,7 +51,7 @@ def build(
         
         if not typer.confirm("\nDeseja prosseguir com a compilação?", default=True):
             console.print("Operação cancelada pelo usuário.")
-            raise typer.Exit()
+            raise Exit()
             
         # 4. Executar Pipeline
         build_conf = build_types.BuildConfig(
@@ -77,13 +78,13 @@ def build(
         
     except shared_types.UnsupportedGPUError as e:
         error_console.print(f"[bold red]✘ GPU não suportada:[/bold red] {e}")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None
     except shared_types.InsufficientVRAMError as e:
         error_console.print(f"[bold red]✘ VRAM insuficiente:[/bold red] {e}")
-        raise typer.Exit(1) from None
+        raise Exit(1) from None
     except Exception as e:
         error_console.print(f"[bold red]✘ Falha crítica no pipeline:[/bold red] {e}")
         if verbose:
             import traceback
             traceback.print_exc()
-        raise typer.Exit(1) from None
+        raise Exit(1) from None

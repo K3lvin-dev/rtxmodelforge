@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer import Exit
 
 from rtxmodelforge.features.engines import store
 from rtxmodelforge.shared.console import console, error_console
@@ -18,7 +19,7 @@ def delete(
         error_console.print(
             f"[bold red]✘ Nenhum engine válido encontrado em:[/bold red] {engine_path}"
         )
-        raise typer.Exit(1)
+        raise Exit(1)
 
     console.print("\n[bold yellow]⚠ Atenção:[/bold yellow] Você está prestes a remover o engine:")
     console.print(f"  Modelo:  [cyan]{meta.model_id}[/cyan]")
@@ -31,6 +32,6 @@ def delete(
             console.print("[bold green]✔ Engine removido com sucesso.[/bold green]")
         except Exception as e:
             error_console.print(f"[bold red]✘ Falha ao remover engine:[/bold red] {e}")
-            raise typer.Exit(1) from None
+            raise Exit(1) from None
     else:
         console.print("Operação cancelada.")

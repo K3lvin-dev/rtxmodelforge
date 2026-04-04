@@ -60,13 +60,17 @@ def _detect_gpu_via_smi() -> Optional[GPUInfo]:
         major_minor = parts[1].split(".")
         sm_version = int(major_minor[0]) * 10 + int(major_minor[1])
 
+        vram_total_raw = float(parts[2])
+        vram_free_raw = float(parts[3])
+
         return GPUInfo(
             name=parts[0],
             sm_version=sm_version,
-            vram_total_gb=float(parts[2])
-            / 1024,  # nvidia-smi retorna MiB com nounits? Geralmente sim.
-            vram_free_gb=float(parts[3]) / 1024,
+            vram_total_gb=vram_total_raw / 1024.0,
+            vram_free_gb=vram_free_raw / 1024.0,
             driver_version=parts[4],
+        )
+
         )
     except (subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
         return None
