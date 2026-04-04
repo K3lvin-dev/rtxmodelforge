@@ -1,37 +1,36 @@
-[project]
+[tool.poetry]
 name = "rtxmodelforge"
 version = "0.1.0"
 description = "RTX Model Forge: Compile e rode modelos LLM otimizados com TensorRT-LLM em GPUs RTX."
+authors = ["Kelvin <kelvin@example.com>"]
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "typer>=0.15",
-    "rich>=14.0",
-    "pydantic>=2.10",
-    "pydantic-settings[toml]>=2.7",
-    "httpx>=0.28",
-    "pynvml>=12.0",
-    "huggingface_hub>=0.28",
-    "tomli-w>=1.1",
-    "transformers>=4.48",
-]
+packages = [{include = "rtxmodelforge", from = "src"}]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.3",
-    "pytest-mock>=3.14",
-    "mypy>=1.13",
-]
+[tool.poetry.dependencies]
+python = "^3.12"
+typer = "^0.15"
+rich = "^14.0"
+pydantic = "^2.10"
+pydantic-settings = {extras = ["toml"], version = "^2.7"}
+httpx = "^0.28"
+pynvml = "^12.0"
+huggingface-hub = "^0.28"
+tomli-w = "^1.1"
+transformers = "^4.48"
+fastapi = "^0.115"
+uvicorn = "^0.34"
 
-[project.scripts]
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-mock = "^3.14"
+mypy = "^1.13"
+
+[tool.poetry.scripts]
 rtxforge = "rtxmodelforge.main:app"
 
 [build-system]
-requires = ["setuptools>=75"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 strict = true
