@@ -8,7 +8,8 @@ from rtxmodelforge.features.login.command import login
 from rtxmodelforge.features.engines.list_command import list_engines
 from rtxmodelforge.features.engines.delete_command import delete
 
-from rtxmodelforge.features.build.command import build
+from rtxmodelforge.features.serve.command import serve
+from rtxmodelforge.features.chat.command import chat
 
 app = typer.Typer(
     name="rtxforge",
@@ -31,17 +32,8 @@ def main(
     pass
 
 app.command()(build)
-
-@app.command()
-def serve() -> None:
-    """[Em breve] Sobe um servidor REST compatível com OpenAI."""
-    typer.echo("Comando 'serve' em breve.")
-
-@app.command()
-def chat() -> None:
-    """[Em breve] Inicia um chat interativo no terminal."""
-    typer.echo("Comando 'chat' em breve.")
-
+app.command()(serve)
+app.command()(chat)
 app.command()(login)
 app.command()(doctor)
 app.command(name="list")(list_engines)
