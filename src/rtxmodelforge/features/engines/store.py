@@ -43,8 +43,9 @@ def load_metadata(engine_path: Path) -> Optional[EngineMetadata]:
 
             if metadata.schema_version != CURRENT_SCHEMA_VERSION:
                 console.print(
-                    f"[yellow][WARNING] Engine em {engine_path} usa schema v{metadata.schema_version} "
-                    f"(atual: v{CURRENT_SCHEMA_VERSION}). Recomenda-se recompilar.[/yellow]"
+                    f"[yellow][WARNING] Engine em {engine_path} usa schema "
+                    f"v{metadata.schema_version} (atual: v{CURRENT_SCHEMA_VERSION}). "
+                    "Recomenda-se recompilar.[/yellow]"
                 )
             return metadata
     except Exception:

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import typer
-from typer import Exit
 from rich.live import Live
 from rich.table import Table
+from typer import Exit
 
 from rtxmodelforge.features.doctor import checks
 from rtxmodelforge.shared.console import console

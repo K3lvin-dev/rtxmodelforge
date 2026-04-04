@@ -11,10 +11,12 @@ class Quantization(str, Enum):
     INT4_AWQ = "int4_awq"
     FP4 = "fp4"
 
+
 class QualityLabel(str, Enum):
     MAX_QUALITY = "max-quality"
     BALANCED = "balanced"
     MAX_SPEED = "max-speed"
+
 
 QUANT_DISPLAY: Final[dict[Quantization, str]] = {
     Quantization.FP8: "FP8 (Alta Qualidade/Velocidade)",
@@ -23,11 +25,13 @@ QUANT_DISPLAY: Final[dict[Quantization, str]] = {
     Quantization.FP4: "FP4 (Máxima Velocidade - Blackwell)",
 }
 
+
 class StageStatus(str, Enum):
     PENDING = "—"
     RUNNING = "⠸"
     DONE = "✔"
     FAILED = "✘"
+
 
 @dataclass
 class StageResult:
@@ -40,6 +44,7 @@ class StageResult:
         minutes, seconds = divmod(int(self.duration_s), 60)
         return f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
 
+
 @dataclass(frozen=True)
 class GPUInfo:
     name: str
@@ -48,18 +53,24 @@ class GPUInfo:
     vram_free_gb: float
     driver_version: str
 
+
 class UnsupportedGPUError(Exception):
     """Levantado quando a GPU não é suportada pelo TensorRT-LLM (SM < 80)."""
+
     pass
+
 
 class InsufficientVRAMError(Exception):
     """Levantado quando nenhuma quantização cabe na VRAM disponível."""
+
     pass
+
 
 def vram_needed_gb(params_billions: float, quant: Quantization) -> float:
     """Estima a VRAM necessária: params * bytes_per_param * 1.3 (overhead)."""
     bytes_per_param = 1.0 if quant in (Quantization.FP8, Quantization.INT8) else 0.5
     return params_billions * bytes_per_param * 1.3
+
 
 def recommend_quantization(
     gpu: GPUInfo, params_billions: float

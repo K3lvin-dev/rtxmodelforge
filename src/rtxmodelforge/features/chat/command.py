@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Annotated, Dict, List
 
 import typer
-from typer import Exit
 from rich.markdown import Markdown
+from typer import Exit
 
 from rtxmodelforge.features.engines import store
 from rtxmodelforge.shared.console import console, error_console

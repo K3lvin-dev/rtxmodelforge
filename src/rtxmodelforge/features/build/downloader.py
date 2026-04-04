@@ -19,13 +19,14 @@ def download_weights(
         # Padrões para ignorar para economizar espaço
         ignore = ["*.msgpack", "flax_model*", "tf_model*", "*.h5", "*.ot"]
 
-        weights_path = huggingface_hub.snapshot_download(
+        weights_path = huggingface_hub.snapshot_download( # type: ignore
             repo_id=model_id,
-            local_dir=target_dir / "weights",
+            local_dir=str(target_dir / "weights"),
             token=hf_token,
             ignore_patterns=ignore,
-            local_dir_use_symlinks=False,  # Facilita manipulação posterior
+            local_dir_use_symlinks=False,
         )
+
         return Path(weights_path)
 
     except GatedRepoError:

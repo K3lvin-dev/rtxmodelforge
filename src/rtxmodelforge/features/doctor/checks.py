@@ -92,6 +92,7 @@ def check_gpu() -> CheckResult:
 
     return CheckResult("GPU NVIDIA", True, detail)
 
+
 def check_sm_support() -> CheckResult:
     """Verifica se a SM version é >= 80 (Ampere+)."""
     gpu_info = gpu.detect_gpu()
@@ -113,7 +114,9 @@ def check_trtllm() -> CheckResult:
     try:
         import tensorrt_llm  # pyright: ignore[reportMissingImports]
 
-        return CheckResult("TensorRT-LLM", True, f"Versão {tensorrt_llm.__version__}", blocking=False)
+        return CheckResult(
+            "TensorRT-LLM", True, f"Versão {tensorrt_llm.__version__}", blocking=False
+        )
 
     except ImportError:
         return CheckResult("TensorRT-LLM", False, "Pacote 'tensorrt_llm' não instalado.")

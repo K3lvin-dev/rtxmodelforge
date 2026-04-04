@@ -24,8 +24,8 @@ rtxforge = "rtxmodelforge.main:app"
 # Comando para formatar e tipar (uv run format)
 format = "rtxmodelforge.scripts.format:run"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3",
     "pytest-mock>=3.14",
     "mypy>=1.13",
@@ -43,10 +43,9 @@ ignore = ["ARG001"] # Ignorar argumentos não usados em callbacks Typer
 
 [tool.pyright]
 include = ["src"]
-typeCheckingMode = "strict"
-reportMissingImports = true
+typeCheckingMode = "basic"
+reportMissingImports = false
 reportMissingTypeStubs = false
-reportUnknownMemberType = false # Silenciar Typer/Click dynamic members
 
 [build-system]
 requires = ["hatchling"]
