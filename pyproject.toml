@@ -24,6 +24,16 @@ uvicorn = "^0.34"
 pytest = "^8.3"
 pytest-mock = "^3.14"
 mypy = "^1.13"
+ruff = "^0.9"
+pyright = "^1.1"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4", "ARG"]
+ignore = ["ARG001"] # Ignorar argumentos não usados em callbacks Typer
 
 [tool.poetry.scripts]
 rtxforge = "rtxmodelforge.main:app"
