@@ -80,7 +80,7 @@ def check_gpu() -> CheckResult:
 
     # Check extra para multi-gpu (apenas aviso informativo no v1)
     try:
-        import pynvml
+        import pynvml  # pyright: ignore[reportMissingImports]
 
         pynvml.nvmlInit()
         count = pynvml.nvmlDeviceGetCount()
@@ -111,11 +111,10 @@ def check_sm_support() -> CheckResult:
 def check_trtllm() -> CheckResult:
     """Verifica instalação do tensorrt_llm."""
     try:
-        import tensorrt_llm
+        import tensorrt_llm  # pyright: ignore[reportMissingImports]
 
-        return CheckResult(
-            "TensorRT-LLM", True, f"Versão {tensorrt_llm.__version__}", blocking=False
-        )
+        return CheckResult("TensorRT-LLM", True, f"Versão {tensorrt_llm.__version__}", blocking=False)
+
     except ImportError:
         return CheckResult("TensorRT-LLM", False, "Pacote 'tensorrt_llm' não instalado.")
 

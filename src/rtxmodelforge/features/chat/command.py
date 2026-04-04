@@ -32,7 +32,10 @@ def chat(
         raise Exit(1)
 
     try:
-        from tensorrt_llm.llmapi import LLM, SamplingParams
+        from tensorrt_llm.llmapi import (
+            LLM,
+            SamplingParams,
+        )  # pyright: ignore[reportMissingImports]
         from transformers import AutoTokenizer
     except ImportError:
         error_console.print(

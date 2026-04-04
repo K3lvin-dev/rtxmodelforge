@@ -30,8 +30,8 @@ def detect_gpu() -> Optional[GPUInfo]:
         return GPUInfo(
             name=name,
             sm_version=sm_version,
-            vram_total_gb=mem.total / 1e9,
-            vram_free_gb=mem.free / 1e9,
+            vram_total_gb=float(mem.total) / 1e9,
+            vram_free_gb=float(mem.free) / 1e9,
             driver_version=driver,
         )
     except pynvml.NVMLError:
@@ -69,8 +69,6 @@ def _detect_gpu_via_smi() -> Optional[GPUInfo]:
             vram_total_gb=vram_total_raw / 1024.0,
             vram_free_gb=vram_free_raw / 1024.0,
             driver_version=parts[4],
-        )
-
         )
     except (subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
         return None

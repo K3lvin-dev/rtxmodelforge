@@ -67,7 +67,7 @@ def run(config: build_types.BuildConfig) -> Path:
         # Coleta versão do TRT-LLM para metadata
         trt_ver = "desconhecido"
         try:
-            import tensorrt_llm
+            import tensorrt_llm  # pyright: ignore[reportMissingImports]
 
             trt_ver = tensorrt_llm.__version__
         except ImportError:
