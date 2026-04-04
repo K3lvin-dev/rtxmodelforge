@@ -11,6 +11,35 @@ from rtxmodelforge.features.build.types import GatedModelError
 from rtxmodelforge.shared.console import console
 
 
+def fetch_params_billions(model_id: str, hf_token: Optional[str] = None) -> Optional[float]:
+    """Baixa apenas o config.json para estimar parâmetros antes do download completo."""
+    try:
+        config_path = huggingface_hub.hf_hub_download(  # type: ignore
+            repo_id=model_id,
+            filename="config.json",
+            token=hf_token,
+        )
+        with open(config_path) as f:
+            data = json.load(f)
+
+        if "num_parameters" in data:
+            return data["num_parameters"] / 1e9
+
+        h = data.get("hidden_size")
+        num_layers = data.get("num_hidden_layers")
+        i = data.get("intermediate_size")
+        v = data.get("vocab_size", 32000)
+
+        if h and num_layers and i:
+            params = v * h + num_layers * (4 * h**2 + 3 * i * h)
+            return params / 1e9
+
+    except Exception:
+        pass
+
+    return None
+
+
 def download_weights(
     model_id: str, target_dir: Path, hf_token: Optional[str] = None, verbose: bool = False
 ) -> Path:
@@ -24,7 +53,6 @@ def download_weights(
             local_dir=str(target_dir / "weights"),
             token=hf_token,
             ignore_patterns=ignore,
-            local_dir_use_symlinks=False,
         )
 
         return Path(weights_path)

@@ -8,6 +8,9 @@ from typer import Exit
 
 from rtxmodelforge.features.build import pipeline
 from rtxmodelforge.features.build import types as build_types
+from rtxmodelforge.features.build.downloader import fetch_params_billions
+from rtxmodelforge.features.build.types import GatedModelError
+from rtxmodelforge.shared import config as shared_config
 from rtxmodelforge.shared import gpu
 from rtxmodelforge.shared import types as shared_types
 from rtxmodelforge.shared.console import console, error_console
@@ -34,11 +37,11 @@ def build(
         error_console.print("[bold red]✘ Nenhuma GPU NVIDIA compatível detectada.[/bold red]")
         raise Exit(1)
         
-    # Por enquanto, usaremos 8.0B como exemplo para demonstração ou pediremos
-    # No pipeline real, Stage 2 atualiza este valor.
-    params_est = 8.0 
-    
     try:
+        settings = shared_config.get_settings()
+        console.print("[dim]Buscando configuração do modelo...[/dim]")
+        params_est = fetch_params_billions(model_id, settings.hf_token) or 8.0
+
         quant, quality, rationale = shared_types.recommend_quantization(gpu_info, params_est)
         
         # 3. Exibir Painel de Início
@@ -61,7 +64,7 @@ def build(
             quantization=quant,
             quality_label=quality,
             rationale=rationale,
-            params_billions=params_est,
+            params_billions=params_est,  # pipeline atualiza com valor exato no Stage 2
             verbose=verbose
         )
         
@@ -76,6 +79,15 @@ def build(
             ]
         ))
         
+    except GatedModelError:
+        error_console.print(
+            f"\n[bold red]✘ Acesso negado ao modelo '[cyan]{model_id}[/cyan]'.[/bold red]\n\n"
+            "  Este modelo requer autorização. Para resolver:\n\n"
+            f"  [bold]1.[/bold] Aceite os termos em: [cyan]https://huggingface.co/{model_id}[/cyan]\n"
+            "  [bold]2.[/bold] Gere um token em:    [cyan]https://huggingface.co/settings/tokens[/cyan]\n"
+            "  [bold]3.[/bold] Autentique-se com:   [cyan]rtxforge login[/cyan]\n"
+        )
+        raise Exit(1) from None
     except shared_types.UnsupportedGPUError as e:
         error_console.print(f"[bold red]✘ GPU não suportada:[/bold red] {e}")
         raise Exit(1) from None

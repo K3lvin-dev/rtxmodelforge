@@ -15,6 +15,15 @@ from rtxmodelforge.shared.types import StageResult, StageStatus
 def run(config: build_types.BuildConfig) -> Path:
     """Executa o pipeline completo de build."""
 
+    engine_dir = store.get_engine_dir(config.model_id, config.quantization)
+    if (engine_dir / "engine.json").exists():
+        console.print(
+            f"\n[bold yellow]⚠ Engine já existe:[/bold yellow] {engine_dir}\n"
+            "  Use [cyan]rtxforge list[/cyan] para ver engines compilados.\n"
+            "  Use [cyan]rtxforge delete[/cyan] para remover e recompilar.\n"
+        )
+        return engine_dir
+
     stages = [
         StageResult("Baixando pesos do HuggingFace"),
         StageResult("Lendo configuração do modelo"),
@@ -22,12 +31,14 @@ def run(config: build_types.BuildConfig) -> Path:
         StageResult("Salvando metadados e limpeza"),
     ]
 
-    engine_dir = store.get_engine_dir(config.model_id, config.quantization)
     weights_dir = engine_dir / "weights"
 
     def update_display():
         console.clear()
         console.print(stage_table(stages))
+
+    from rtxmodelforge.shared import config as shared_config
+    settings = shared_config.get_settings()
 
     try:
         # Stage 1: Download
@@ -37,7 +48,7 @@ def run(config: build_types.BuildConfig) -> Path:
         downloader.download_weights(
             model_id=config.model_id,
             target_dir=engine_dir,
-            hf_token=None,  # TODO: Obter do config.get_settings().hf_token
+            hf_token=settings.hf_token,
             verbose=config.verbose,
         )
         stages[0].duration_s = time.time() - start
@@ -47,6 +58,7 @@ def run(config: build_types.BuildConfig) -> Path:
         stages[1].status = StageStatus.RUNNING
         update_display()
         start = time.time()
+        config.weights_dir = weights_dir
         config.params_billions = downloader.read_params_billions(weights_dir)
         stages[1].duration_s = time.time() - start
         stages[1].status = StageStatus.DONE

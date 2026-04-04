@@ -14,8 +14,9 @@ from rtxmodelforge.shared.types import Quantization
 def build_engine(config: BuildConfig, engine_dir: Path) -> Path:
     """Orquestra a compilação do engine via LLM API."""
     try:
+        from tensorrt_llm._tensorrt_engine import LLM  # pyright: ignore[reportMissingImports]
         from tensorrt_llm.llmapi import (
-            LLM,
+            KvCacheConfig,
             QuantAlgo,
             QuantConfig,
         )  # pyright: ignore[reportMissingImports]
@@ -28,7 +29,7 @@ def build_engine(config: BuildConfig, engine_dir: Path) -> Path:
     _ALGO_MAP = {
         Quantization.FP8: QuantAlgo.FP8,
         Quantization.INT8: QuantAlgo.INT8,
-        Quantization.INT4_AWQ: QuantAlgo.AWQ,
+        Quantization.INT4_AWQ: QuantAlgo.W4A16_AWQ,
         Quantization.FP4: QuantAlgo.NVFP4,
     }
 
@@ -67,11 +68,16 @@ def build_engine(config: BuildConfig, engine_dir: Path) -> Path:
 
             # Instancia o LLM e compila
             # tensor_parallel_size=1 fixo para v1
+            # During build, the compiler workspace + runtime buffers consume most
+            # VRAM. A minimal max_attention_window allows the executor to init
+            # without OOM — it does NOT affect the saved engine's max context.
+            build_kv_cache_config = KvCacheConfig(max_attention_window=[512])
+
             llm = LLM(
                 model=str(config.weights_dir),
-                backend="tensorrt",
                 quant_config=quant_config,
                 tensor_parallel_size=1,
+                kv_cache_config=build_kv_cache_config,
             )
 
             update_live()

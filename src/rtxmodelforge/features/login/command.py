@@ -27,7 +27,7 @@ def login(
 
         with httpx.Client(timeout=10.0) as client:
             response = client.get(
-                "https://huggingface.co/api/whoami", headers={"Authorization": f"Bearer {token}"}
+                "https://huggingface.co/api/whoami-v2", headers={"Authorization": f"Bearer {token}"}
             )
 
             if response.status_code == 200:
