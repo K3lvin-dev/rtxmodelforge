@@ -1,31 +1,37 @@
-[tool.poetry]
+[project]
 name = "rtxmodelforge"
 version = "0.1.0"
 description = "RTX Model Forge: Compile e rode modelos LLM otimizados com TensorRT-LLM em GPUs RTX."
-authors = ["Kelvin <kelvin@example.com>"]
 readme = "README.md"
-packages = [{include = "rtxmodelforge", from = "src"}]
+authors = [{name = "Kelvin", email = "kelvin@example.com"}]
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15",
+    "rich>=14.0",
+    "pydantic>=2.10",
+    "pydantic-settings[toml]>=2.7",
+    "httpx>=0.28",
+    "pynvml>=12.0",
+    "huggingface-hub>=0.28",
+    "tomli-w>=1.1",
+    "transformers>=4.48",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-typer = "^0.15"
-rich = "^14.0"
-pydantic = "^2.10"
-pydantic-settings = {extras = ["toml"], version = "^2.7"}
-httpx = "^0.28"
-pynvml = "^12.0"
-huggingface-hub = "^0.28"
-tomli-w = "^1.1"
-transformers = "^4.48"
-fastapi = "^0.115"
-uvicorn = "^0.34"
+[project.scripts]
+rtxforge = "rtxmodelforge.main:app"
+# Comando para formatar e tipar (uv run format)
+format = "rtxmodelforge.scripts.format:run"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3"
-pytest-mock = "^3.14"
-mypy = "^1.13"
-ruff = "^0.9"
-pyright = "^1.1"
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3",
+    "pytest-mock>=3.14",
+    "mypy>=1.13",
+    "ruff>=0.9",
+    "pyright>=1.1",
+]
 
 [tool.ruff]
 line-length = 100
@@ -35,13 +41,13 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "C4", "ARG"]
 ignore = ["ARG001"] # Ignorar argumentos não usados em callbacks Typer
 
-[tool.poetry.scripts]
-rtxforge = "rtxmodelforge.main:app"
+[tool.pyright]
+include = ["src"]
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnknownMemberType = false # Silenciar Typer/Click dynamic members
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.mypy]
-strict = true
-python_version = "3.12"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
