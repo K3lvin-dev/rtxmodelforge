@@ -2,7 +2,7 @@
   "name": "rtxmodelforge-ui",
   "version": "0.1.0",
   "private": true,
-  "description": "RTX Model Forge - GPU Cockpit UI",
+  "description": "RTX Model Forge — GPU Cockpit UI",
   "type": "module",
   "scripts": {
     "dev": "vite",

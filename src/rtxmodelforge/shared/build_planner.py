@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -8,6 +9,8 @@ from typing import Optional
 
 from rtxmodelforge.shared.gpu_profiler import GPUProfile, theoretical_max_tps
 from rtxmodelforge.shared.types import Quantization
+
+logger = logging.getLogger(__name__)
 
 # Tokens por bloco de KV cache do TRT-LLM (deve ser multiplo exato)
 _KV_TOKENS_PER_BLOCK: int = 32
@@ -97,6 +100,7 @@ def read_model_arch(weights_dir: Path) -> Optional[ModelArchParams]:
             max_position_embeddings=int(max_pos),
         )
     except Exception:
+        logger.debug("Falha ao parsear config.json em %s", weights_dir, exc_info=True)
         return None
 
 
