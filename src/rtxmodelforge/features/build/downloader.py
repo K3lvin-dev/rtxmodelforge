@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -10,9 +11,35 @@ from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError
 from rtxmodelforge.features.build.types import GatedModelError
 from rtxmodelforge.shared.console import console
 
+logger = logging.getLogger(__name__)
+
+
+def _estimate_params_from_config(data: dict) -> Optional[float]:
+    """Estima número de parâmetros a partir do config.json.
+
+    Tenta campo explícito 'num_parameters', senão calcula via arquitetura
+    (Llama, Mistral, Qwen2, etc.).
+    """
+    if "num_parameters" in data:
+        return data["num_parameters"] / 1e9
+
+    h = data.get("hidden_size")
+    num_layers = data.get("num_hidden_layers")
+    i = data.get("intermediate_size")
+    v = data.get("vocab_size", 32000)
+
+    if h and num_layers and i:
+        # Aproximação simplificada: (Embeddings + Layers(Self-Attn + MLP))
+        # MLP costuma ser 3 * intermediate_size * hidden_size (Gate, Up, Down)
+        # Attn costuma ser 4 * hidden_size^2 (Q, K, V, O)
+        params = v * h + num_layers * (4 * h**2 + 3 * i * h)
+        return params / 1e9
+
+    return None
+
 
 def fetch_params_billions(model_id: str, hf_token: Optional[str] = None) -> Optional[float]:
-    """Baixa apenas o config.json para estimar parâmetros antes do download completo."""
+    """Baixa apenas o config.json para estimar parametros antes do download completo."""
     try:
         config_path = huggingface_hub.hf_hub_download(  # type: ignore
             repo_id=model_id,
@@ -22,20 +49,10 @@ def fetch_params_billions(model_id: str, hf_token: Optional[str] = None) -> Opti
         with open(config_path) as f:
             data = json.load(f)
 
-        if "num_parameters" in data:
-            return data["num_parameters"] / 1e9
-
-        h = data.get("hidden_size")
-        num_layers = data.get("num_hidden_layers")
-        i = data.get("intermediate_size")
-        v = data.get("vocab_size", 32000)
-
-        if h and num_layers and i:
-            params = v * h + num_layers * (4 * h**2 + 3 * i * h)
-            return params / 1e9
+        return _estimate_params_from_config(data)
 
     except Exception:
-        pass
+        logger.debug("Falha ao buscar/parsear config.json de %s", model_id, exc_info=True)
 
     return None
 
@@ -70,7 +87,7 @@ def download_weights(
 
 def read_params_billions(weights_dir: Path) -> float:
     """
-    Lê o config.json do modelo e extrai/estima o número de parâmetros em bilhões.
+    Le o config.json do modelo e extrai/estima o numero de parametros em bilhões.
     Tenta o campo 'num_parameters' ou calcula via arquitetura.
     """
     config_path = weights_dir / "config.json"
@@ -81,25 +98,12 @@ def read_params_billions(weights_dir: Path) -> float:
         with config_path.open("r") as f:
             data = json.load(f)
 
-            # 1. Tenta campo explícito (alguns modelos novos trazem isso)
-            if "num_parameters" in data:
-                return data["num_parameters"] / 1e9
-
-            # 2. Estima por arquitetura (Llama, Mistral, Qwen2, etc.)
-            h = data.get("hidden_size")
-            num_layers = data.get("num_hidden_layers")
-            i = data.get("intermediate_size")
-            v = data.get("vocab_size", 32000)
-
-            if h and num_layers and i:
-                # Aproximação simplificada: (Embeddings + Layers(Self-Attn + MLP))
-                # MLP costuma ser 3 * intermediate_size * hidden_size (Gate, Up, Down)
-                # Attn costuma ser 4 * hidden_size^2 (Q, K, V, O)
-                params = v * h + num_layers * (4 * h**2 + 3 * i * h)
-                return params / 1e9
+        result = _estimate_params_from_config(data)
+        if result is not None:
+            return result
 
     except Exception:
-        pass
+        logger.debug("Falha ao parsear config.json em %s", weights_dir, exc_info=True)
 
     return _prompt_params_billions()
 

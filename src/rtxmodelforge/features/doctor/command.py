@@ -5,23 +5,29 @@ from rich.table import Table
 from typer import Exit
 
 from rtxmodelforge.features.doctor import checks
+from rtxmodelforge.shared.capabilities import AccelerationClass, summarize_doctor
 from rtxmodelforge.shared.console import console
+from rtxmodelforge.shared.gpu_profiler import profile_gpu
 
 
 def doctor() -> None:
-    """Verifica a saúde do ambiente (GPU, Driver, CUDA)."""
-    console.print("[bold blue]RTX Model Forge — Diagnóstico do Sistema[/bold blue]\n")
+    """Verifica a saude do ambiente (GPU, Driver, CUDA)."""
+    console.print("[bold blue]RTX Model Forge — Diagnostico do Sistema[/bold blue]\n")
 
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Status", width=6, justify="center")
-    table.add_column("Verificação", width=30)
+    table.add_column("Verificacao", width=30)
     table.add_column("Detalhe", ratio=1)
 
+    # Profile GPU uma vez e passa para todos os checks que precisam
+    gpu_profile = profile_gpu()
+
     check_list = [
-        checks.check_gpu,
-        checks.check_nvidia_driver,
+        lambda: checks.check_gpu(gpu_profile),
+        lambda: checks.check_nvidia_driver(gpu_profile),
         checks.check_cuda_toolkit,
-        checks.check_sm_support,
+        lambda: checks.check_sm_support(gpu_profile),
+        lambda: checks.check_tensor_core_modes(gpu_profile),
         checks.check_libopenmpi,
         checks.check_trtllm,
         checks.check_hf_token,
@@ -43,10 +49,25 @@ def doctor() -> None:
             if not res.passed and res.blocking:
                 has_failed = True
 
+    trtllm_res = checks.check_trtllm()
+    cuda_res = checks.check_cuda_toolkit()
+    summary = summarize_doctor(gpu_profile, trtllm_res.passed, cuda_res.passed)
+
+    style = {
+        AccelerationClass.IDEAL: "bold green",
+        AccelerationClass.PARTIAL: "bold yellow",
+        AccelerationClass.FALLBACK: "bold red",
+    }[summary.readiness]
+    console.print(
+        f"\n[{style}]Resultado:[/{style}] {summary.readiness.value} "
+        f"· melhor caminho esperado: {summary.best_path_label}"
+    )
+    console.print(summary.detail)
+
     if has_failed:
         console.print(
-            "\n[bold red]✘ Alguns checks críticos falharam.[/bold red] Verifique os detalhes acima."
+            "\n[bold red]✘ Alguns checks criticos falharam.[/bold red] Verifique os detalhes acima."
         )
         raise Exit(1)
     else:
-        console.print("\n[bold green]✔ Ambiente pronto para uso![/bold green]")
+        console.print("\n[bold green]✔ Ambiente pronto para maxima aceleracao RTX.[/bold green]")
