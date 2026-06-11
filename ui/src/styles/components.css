@@ -303,6 +303,36 @@
 	padding: 0 var(--space-3) var(--space-2);
 }
 
+.operations__model-input {
+	padding: 0 var(--space-3) var(--space-3);
+}
+
+.operations__model-field {
+	width: 100%;
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--faint);
+	border-radius: var(--radius-sm);
+	background: var(--surface);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	outline: none;
+	transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.operations__model-field:focus {
+	border-color: var(--accent);
+}
+
+.operations__model-field::placeholder {
+	color: var(--muted);
+}
+
+.operations__model-field:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 .operations__list {
 	display: flex;
 	flex-direction: column;

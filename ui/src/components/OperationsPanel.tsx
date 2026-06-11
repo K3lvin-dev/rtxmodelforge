@@ -1,4 +1,4 @@
-/* ── RTX Model Forge · Operations Panel ──
+/* RTX Model Forge Operations Panel
    Command list. Each row = one CLI operation with status, shortcut, and action. */
 
 import { useCallback, useRef, useState } from "react";
@@ -26,12 +26,14 @@ interface Handlers {
 interface OperationsPanelProps {
 	state: SystemState;
 	handlers: Handlers;
+	onError?: (msg: string) => void;
 }
 
-export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
+export function OperationsPanel({ state, handlers, onError }: OperationsPanelProps) {
 	const [loadingOp, setLoadingOp] = useState<OperationId | null>(null);
 	const loadingRef = useRef<OperationId | null>(null);
 	const [tooltip, setTooltip] = useState<Tooltip | null>(null);
+	const [modelInput, setModelInput] = useState("");
 
 	const runningEngine = state.engines.find((e) => e.status === "running");
 	const hasEngines = state.engines.length > 0;
@@ -44,7 +46,7 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			label: "Prepare",
 			kbd: "P",
 			disabled: !cliOk,
-			disabledReason: !cliOk ? "CLI indisponível" : null,
+			disabledReason: !cliOk ? "CLI indisponivel" : null,
 			statusLabel: hasEngines ? `${state.engines.length} engine(s)` : "Nenhuma",
 			statusKind: hasEngines ? "ok" : "warn",
 		},
@@ -54,7 +56,7 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			kbd: "S",
 			disabled: !cliOk || !hasEngines,
 			disabledReason: !cliOk
-				? "CLI indisponível"
+				? "CLI indisponivel"
 				: !hasEngines
 					? "Execute Prepare primeiro"
 					: null,
@@ -71,11 +73,11 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			kbd: "C",
 			disabled: !cliOk || !runningEngine,
 			disabledReason: !cliOk
-				? "CLI indisponível"
+				? "CLI indisponivel"
 				: !runningEngine
 					? "Nenhuma engine servindo"
 					: null,
-			statusLabel: runningEngine ? "Disponível" : "Indisponível",
+			statusLabel: runningEngine ? "Disponivel" : "Indisponivel",
 			statusKind: runningEngine ? "ok" : "warn",
 		},
 		{
@@ -84,7 +86,7 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			kbd: "R",
 			disabled: !cliOk || !hasEngines,
 			disabledReason: !cliOk
-				? "CLI indisponível"
+				? "CLI indisponivel"
 				: !hasEngines
 					? "Execute Prepare primeiro"
 					: null,
@@ -96,8 +98,8 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			label: "Doctor",
 			kbd: "D",
 			disabled: !cliOk,
-			disabledReason: !cliOk ? "CLI indisponível" : null,
-			statusLabel: gpuOk ? "Sistema OK" : "GPU não detectada",
+			disabledReason: !cliOk ? "CLI indisponivel" : null,
+			statusLabel: gpuOk ? "Sistema OK" : "GPU nao detectada",
 			statusKind: gpuOk ? "ok" : "err",
 		},
 		{
@@ -105,7 +107,7 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			label: "List",
 			kbd: "I",
 			disabled: !cliOk,
-			disabledReason: !cliOk ? "CLI indisponível" : null,
+			disabledReason: !cliOk ? "CLI indisponivel" : null,
 			statusLabel: hasEngines ? `${state.engines.length} engine(s)` : "Vazio",
 			statusKind: null,
 		},
@@ -114,7 +116,7 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			label: "Login",
 			kbd: "L",
 			disabled: !cliOk,
-			disabledReason: !cliOk ? "CLI indisponível" : null,
+			disabledReason: !cliOk ? "CLI indisponivel" : null,
 			statusLabel: "HuggingFace",
 			statusKind: "ok",
 		},
@@ -124,7 +126,7 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 			kbd: "X",
 			disabled: !cliOk || !hasEngines,
 			disabledReason: !cliOk
-				? "CLI indisponível"
+				? "CLI indisponivel"
 				: !hasEngines
 					? "Nada para deletar"
 					: null,
@@ -133,9 +135,36 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 		},
 	];
 
+	const doPrepare = useCallback(async () => {
+		if (!modelInput.trim()) {
+			if (onError) onError("prepare: Informe o ID do modelo (ex: meta-llama/Llama-3.1-8B)");
+			return;
+		}
+		loadingRef.current = "prepare";
+		setLoadingOp("prepare");
+		try {
+			const result = await executeCommand("prepare", [modelInput.trim()]);
+			if (!result.ok) {
+				if (onError) onError(`prepare: ${result.error || "falhou"}`);
+			}
+			handlers.refresh?.();
+		} catch (err) {
+			if (onError) onError(`prepare: ${err instanceof Error ? err.message : "erro desconhecido"}`);
+		} finally {
+			loadingRef.current = null;
+			setLoadingOp(null);
+		}
+	}, [modelInput, handlers, onError]);
+
 	const handleClick = useCallback(
 		async (op: OpDef) => {
 			if (op.disabled || loadingRef.current) return;
+
+			/* Prepare has its own flow with model_id input */
+			if (op.id === "prepare") {
+				await doPrepare();
+				return;
+			}
 
 			const handler = handlers[op.id];
 			if (handler) {
@@ -160,16 +189,35 @@ export function OperationsPanel({ state, handlers }: OperationsPanelProps) {
 				setLoadingOp(null);
 			}
 		},
-		[handlers],
+		[handlers, doPrepare],
 	);
 
 	return (
 		<div className="operations">
-			<span className="operations__header">Operações</span>
+			<span className="operations__header">Operacoes</span>
+
+			{/* Model ID input for Prepare */}
+			<div className="operations__model-input">
+				<input
+					type="text"
+					value={modelInput}
+					onChange={(e) => setModelInput(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" && !ops[0]?.disabled) {
+							e.preventDefault();
+							doPrepare();
+						}
+					}}
+					placeholder="Model ID (ex: meta-llama/Llama-3.1-8B)"
+					disabled={!cliOk}
+					className="operations__model-field"
+				/>
+			</div>
+
 			<div className="operations__list">
 				{ops.map((op) => {
 					const isLoading = loadingOp === op.id;
-					const isDisabled = op.disabled || loadingOp !== null;
+					const isDisabled = op.disabled || (loadingOp !== null && loadingOp !== op.id);
 
 					return (
 						<button

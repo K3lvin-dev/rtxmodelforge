@@ -191,7 +191,7 @@ export default function App() {
 			>
 				<NoGpuDiagnostic />
 				<div style={{ marginTop: "var(--space-10)" }} />
-				<OperationsPanel state={state} handlers={handlers} />
+				<OperationsPanel state={state} handlers={handlers} onError={setBannerError} />
 			</Layout>
 		);
 	}
@@ -214,7 +214,7 @@ export default function App() {
 				<div style={{ marginTop: "var(--space-10)" }} />
 				<HardwarePanel gpu={state.gpu} prevValues={prevValues} />
 				<div style={{ marginTop: "var(--space-10)" }} />
-				<OperationsPanel state={state} handlers={handlers} />
+				<OperationsPanel state={state} handlers={handlers} onError={setBannerError} />
 			</Layout>
 		);
 	}
@@ -237,7 +237,7 @@ export default function App() {
 				<div style={{ marginTop: "var(--space-10)" }} />
 				<HardwarePanel gpu={state.gpu} prevValues={prevValues} />
 				<div style={{ marginTop: "var(--space-10)" }} />
-				<OperationsPanel state={state} handlers={handlers} />
+				<OperationsPanel state={state} handlers={handlers} onError={setBannerError} />
 			</Layout>
 		);
 	}
@@ -257,7 +257,7 @@ export default function App() {
 		>
 			<HardwarePanel gpu={state.gpu} prevValues={prevValues} />
 			<div style={{ marginTop: "var(--space-10)" }} />
-			<OperationsPanel state={state} handlers={handlers} />
+			<OperationsPanel state={state} handlers={handlers} onError={setBannerError} />
 		</Layout>
 	);
 }
