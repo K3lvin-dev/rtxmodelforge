@@ -40,6 +40,10 @@ class RuntimePlan:
     model_id: str
     quantization: str
     kv_cache_gb: float  # VRAM estimada para KV com janela calculada
+    architecture_label: str
+    acceleration_class: str
+    tensor_core_path_label: str
+    fallback_reason: Optional[str]
     kv_cache_fraction: float = field(
         default=0.9
     )  # fracao da VRAM livre para KV cache (trtllm-serve)
@@ -53,6 +57,10 @@ def plan_runtime(
     engine_mode: str,
     max_batch_size: int,
     engine_size_gb: float,
+    architecture_label: str = "",
+    acceleration_class: str = "",
+    tensor_core_path_label: str = "",
+    fallback_reason: Optional[str] = None,
     arch: Optional[ModelArchParams] = None,
 ) -> RuntimePlan:
     """
@@ -139,6 +147,10 @@ def plan_runtime(
         model_id=model_id,
         quantization=quantization_str.upper(),
         kv_cache_gb=kv_cache_gb,
+        architecture_label=architecture_label or profile.architecture.value,
+        acceleration_class=acceleration_class or "modo acelerado parcial",
+        tensor_core_path_label=tensor_core_path_label or quantization_str.upper(),
+        fallback_reason=fallback_reason,
         kv_cache_fraction=kv_cache_fraction,
     )
 

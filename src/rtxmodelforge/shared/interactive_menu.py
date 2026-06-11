@@ -13,14 +13,16 @@ from rtxmodelforge.features.engines import store
 from rtxmodelforge.features.engines.delete_command import delete as delete_cmd
 from rtxmodelforge.features.engines.list_command import list_engines as list_engines_cmd
 from rtxmodelforge.features.login.command import login as login_cmd
+from rtxmodelforge.features.run.command import run as run_cmd
 from rtxmodelforge.features.serve.command import serve as serve_cmd
 from rtxmodelforge.shared.console import console
 from rtxmodelforge.shared.splash import render_splash
 
 # Usa questionary.Choice para separar label exibida do valor canônico retornado.
 _MENU_CHOICES = [
-    questionary.Choice("Build    — compilar um modelo",        value="Build"),
+    questionary.Choice("Prepare  — preparar cache otimizado", value="Prepare"),
     questionary.Choice("Serve    — iniciar servidor de inferência", value="Serve"),
+    questionary.Choice("Run      — conversar por model_id", value="Run"),
     questionary.Choice("Chat     — conversar com um modelo",   value="Chat"),
     questionary.Choice("Login    — autenticar no HuggingFace", value="Login"),
     questionary.Choice("List     — listar engines compilados", value="List"),
@@ -60,15 +62,25 @@ def run_interactive_menu() -> None:
     if choice is None:
         return  # Ctrl+C
 
-    if choice == "Build":
+    if choice in {"Prepare", "Build"}:
         model_id = questionary.text("ID do modelo no HuggingFace (ex: meta-llama/Llama-3.1-8B):").ask()
         if model_id:
             build_cmd(model_id=model_id, verbose=False)
 
     elif choice == "Serve":
-        engine_path = _select_engine_path("Selecione o engine para servir:")
-        if engine_path:
-            serve_cmd(engine_path=engine_path)
+        if store.list_engines():
+            engine_path = _select_engine_path("Selecione o engine para servir:")
+            if engine_path:
+                serve_cmd(engine_path=engine_path)
+        else:
+            model_id = questionary.text("ID do modelo para servir:").ask()
+            if model_id:
+                serve_cmd(model_id=model_id)
+
+    elif choice == "Run":
+        model_id = questionary.text("ID do modelo para chat local:").ask()
+        if model_id:
+            run_cmd(model_id=model_id)
 
     elif choice == "Chat":
         engine_path = _select_engine_path("Selecione o engine para chat:")

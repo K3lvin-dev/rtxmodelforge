@@ -6,6 +6,8 @@ from typing import Optional
 
 import pynvml
 
+from rtxmodelforge.shared.capabilities import GPUArchitecture, classify_gpu_architecture
+
 # Bandwidth de memória por GPU (GB/s). Fonte: especificações oficiais NVIDIA.
 # Para GPUs fora da tabela, usamos estimativa via sm_count × clock × bus_width.
 _BANDWIDTH_LOOKUP: dict[str, float] = {
@@ -93,6 +95,7 @@ class GPUProfile:
     max_clock_mhz: int
     vram_reserved_gb: float  # total - free (apps em uso no momento)
     bandwidth_from_lookup: bool  # True = lookup table, False = estimativa
+    architecture: GPUArchitecture
 
 
 def _lookup_bandwidth(name: str) -> Optional[float]:
@@ -196,6 +199,7 @@ def profile_gpu() -> Optional[GPUProfile]:
             max_clock_mhz=max_clock_mhz,
             vram_reserved_gb=vram_reserved_gb,
             bandwidth_from_lookup=bw_from_lookup,
+            architecture=classify_gpu_architecture(sm_version),
         )
 
     except pynvml.NVMLError:
@@ -280,6 +284,7 @@ def _profile_gpu_via_smi() -> Optional[GPUProfile]:
             max_clock_mhz=2000,
             vram_reserved_gb=vram_reserved_gb,
             bandwidth_from_lookup=bw_from_lookup,
+            architecture=classify_gpu_architecture(sm_version),
         )
     except (subprocess.SubprocessError, FileNotFoundError, ValueError, IndexError):
         return None

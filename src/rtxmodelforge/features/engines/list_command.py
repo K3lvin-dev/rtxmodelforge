@@ -21,7 +21,9 @@ def list_engines() -> None:
     table.add_column("Modelo", ratio=1)
     table.add_column("Modo", width=8)
     table.add_column("GPU", width=20)
+    table.add_column("Arq.", width=12)
     table.add_column("Formato", width=10)
+    table.add_column("RTX", width=24)
     table.add_column("Batch", width=7, justify="right")
     table.add_column("Seq Len", width=9, justify="right")
     table.add_column("VRAM", width=10, justify="right")
@@ -36,7 +38,9 @@ def list_engines() -> None:
             meta.model_id,
             f"[{mode_color}]{mode}[/{mode_color}]",
             meta.gpu_model,
+            meta.target_architecture or "—",
             meta.quantization.upper(),
+            meta.acceleration_class or "—",
             batch,
             seq_len,
             f"{meta.vram_used_gb:.1f}GB",

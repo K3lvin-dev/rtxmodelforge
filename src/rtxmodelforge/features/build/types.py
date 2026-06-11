@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rtxmodelforge.shared.build_planner import EngineMode
+from rtxmodelforge.shared.capabilities import AccelerationClass, GPUArchitecture
 from rtxmodelforge.shared.gpu_profiler import GPUProfile
 from rtxmodelforge.shared.types import QualityLabel, Quantization
 
@@ -22,6 +23,11 @@ class BuildConfig:
     max_batch_size: int = 1
     max_seq_len: int = 4096
     enable_chunked_context: bool = True
+    target_precision: str = ""
+    effective_precision: str = ""
+    acceleration_class: AccelerationClass = AccelerationClass.PARTIAL
+    target_architecture: GPUArchitecture = GPUArchitecture.UNKNOWN
+    fallback_reason: str = ""
 
 
 class CompilationError(Exception):
