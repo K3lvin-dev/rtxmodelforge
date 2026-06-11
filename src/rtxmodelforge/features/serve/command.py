@@ -2,26 +2,43 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from typer import Exit
 
 from rtxmodelforge.features.engines import store
+from rtxmodelforge.shared.cli_decorators import handle_cli_errors
 from rtxmodelforge.shared.console import console, error_console
 from rtxmodelforge.shared.gpu_profiler import profile_gpu
 from rtxmodelforge.shared.panels import runtime_dashboard
 from rtxmodelforge.shared.runtime_planner import plan_runtime
+from rtxmodelforge.shared.workflow import prepare_model
 
 
+@handle_cli_errors(verbose=False)
 def serve(
+    model_id: Annotated[Optional[str], typer.Argument(help="ID do modelo no HuggingFace.")] = None,
     engine_path: Annotated[
-        Path, typer.Argument(help="Caminho para o diretório do engine compilado.")
-    ],
+        Optional[Path],
+        typer.Option("--engine-path", help="Caminho direto para um engine já compilado."),
+    ] = None,
     port: Annotated[int, typer.Option("--port", help="Porta para o servidor REST.")] = 8000,
     host: Annotated[str, typer.Option("--host", help="Host para o servidor REST.")] = "127.0.0.1",
+    verbose: Annotated[
+        bool, typer.Option("--verbose", help="Exibe logs detalhados na preparação.")
+    ] = False,
 ) -> None:
-    """Sobe um servidor REST compatível com OpenAI usando o engine compilado."""
+    """Prepara automaticamente o melhor artefato para Tensor Cores e sobe API local."""
+    if engine_path is None:
+        if model_id is None:
+            error_console.print("[bold red]✘ Informe um model_id ou --engine-path.[/bold red]")
+            raise Exit(1)
+        _chat_engine, engine_path, _gpu, selection = prepare_model(model_id, verbose=verbose)
+        console.print(
+            f"[bold green]Modo acelerado escolhido para sua RTX:[/bold green] "
+            f"{selection.tensor_core_path_label} ({selection.acceleration_class.value})"
+        )
 
     meta = store.load_metadata(engine_path)
     if not meta:
@@ -50,6 +67,10 @@ def serve(
         engine_mode=meta.engine_mode,
         max_batch_size=meta.max_batch_size,
         engine_size_gb=meta.engine_size_gb,
+        architecture_label=meta.target_architecture or gpu_profile.architecture.value,
+        acceleration_class=meta.acceleration_class or "modo acelerado parcial",
+        tensor_core_path_label=meta.effective_precision or meta.quantization.upper(),
+        fallback_reason=meta.fallback_reason or None,
     )
 
     console.print("\n[bold blue]Iniciando Servidor de Inferência[/bold blue]")
