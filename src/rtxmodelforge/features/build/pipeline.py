@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from pathlib import Path
 
 from rtxmodelforge.features.build import downloader, engine_builder
@@ -109,15 +110,8 @@ def run(config: build_types.BuildConfig) -> tuple[Path, Path]:
             update_display()
             start = time.time()
 
-            chat_config = build_types.BuildConfig(
-                model_id=config.model_id,
-                weights_dir=weights_dir,
-                gpu_info=config.gpu_info,
-                quantization=config.quantization,
-                quality_label=config.quality_label,
-                rationale=config.rationale,
-                params_billions=config.params_billions,
-                verbose=config.verbose,
+            chat_config = replace(
+                config,
                 engine_mode=EngineMode.CHAT,
                 max_batch_size=chat_plan.max_batch_size,
                 max_seq_len=chat_plan.max_seq_len,
@@ -134,15 +128,8 @@ def run(config: build_types.BuildConfig) -> tuple[Path, Path]:
             update_display()
             start = time.time()
 
-            serve_config = build_types.BuildConfig(
-                model_id=config.model_id,
-                weights_dir=weights_dir,
-                gpu_info=config.gpu_info,
-                quantization=config.quantization,
-                quality_label=config.quality_label,
-                rationale=config.rationale,
-                params_billions=config.params_billions,
-                verbose=config.verbose,
+            serve_config = replace(
+                config,
                 engine_mode=EngineMode.SERVE,
                 max_batch_size=serve_plan.max_batch_size,
                 max_seq_len=serve_plan.max_seq_len,

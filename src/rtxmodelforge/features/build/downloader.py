@@ -39,7 +39,7 @@ def _estimate_params_from_config(data: dict) -> Optional[float]:
 
 
 def fetch_params_billions(model_id: str, hf_token: Optional[str] = None) -> Optional[float]:
-    """Baixa apenas o config.json para estimar parâmetros antes do download completo."""
+    """Baixa apenas o config.json para estimar parametros antes do download completo."""
     try:
         config_path = huggingface_hub.hf_hub_download(  # type: ignore
             repo_id=model_id,
@@ -87,7 +87,7 @@ def download_weights(
 
 def read_params_billions(weights_dir: Path) -> float:
     """
-    Lê o config.json do modelo e extrai/estima o número de parâmetros em bilhões.
+    Le o config.json do modelo e extrai/estima o numero de parametros em bilhões.
     Tenta o campo 'num_parameters' ou calcula via arquitetura.
     """
     config_path = weights_dir / "config.json"
