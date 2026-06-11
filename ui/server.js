@@ -7,7 +7,14 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "dist");
-const CLI = "rtxforge";
+const PROJ_ROOT = path.resolve(__dirname, "..");
+
+/* Python CLI invocation.
+   On Windows the CLI lives in WSL, so we exec via wsl.exe.
+   On Linux/macOS we use the venv Python directly. */
+const IS_WINDOWS = process.platform === "win32";
+const PYTHON = process.env.RTXFORGE_PYTHON ||
+  (IS_WINDOWS ? "wsl.exe" : path.join(PROJ_ROOT, ".venv", "bin", "python"));
 
 /* Porta: --port N, env PORT, ou 8081 */
 const portArg = process.argv.indexOf("--port");
@@ -46,29 +53,55 @@ function sendError(res, msg, status = 500) {
   sendJSON(res, { ok: false, error: msg }, status);
 }
 
-/** Run rtxforge <args> --json and return parsed result. */
+/** Run python -m rtxmodelforge.main <args> --json and return parsed result.
+    Handles mixed output (diagnostic messages + JSON) by extracting the JSON line. */
 function execCLI(args) {
+  const jsonArgs = [...args, "--json"];
+  let cmd, cmdArgs;
+
+  if (IS_WINDOWS) {
+    /* Build full bash command string with all arguments inline */
+    const escaped = jsonArgs.map(a => `'${a.replace(/'/g, `'\\''`)}'`).join(" ");
+    cmd = "wsl.exe";
+    cmdArgs = [
+      "bash", "-c",
+      `cd ~/rtxmodelforge && .venv/bin/python -m rtxmodelforge.main ${escaped}`,
+    ];
+  } else {
+    cmd = PYTHON;
+    cmdArgs = ["-m", "rtxmodelforge.main", ...jsonArgs];
+  }
+
   return new Promise((resolve, reject) => {
-    execFile(CLI, [...args, "--json"], { timeout: 300000 }, (err, stdout, stderr) => {
-      if (err) {
-        /* Try to extract JSON from stdout even on non-zero exit */
-        if (stdout) {
-          try {
-            const parsed = JSON.parse(stdout);
-            return resolve(parsed);
-          } catch (_) {
-            /* fall through */
-          }
+    execFile(
+      cmd,
+      cmdArgs,
+      { timeout: 300000, ...(IS_WINDOWS ? {} : { cwd: PROJ_ROOT }) },
+      (err, stdout, stderr) => {
+        if (err) {
+          const parsed = _findJSON(stdout);
+          if (parsed) return resolve(parsed);
+          return reject(new Error(stderr.trim() || stdout.trim() || err.message));
         }
-        return reject(new Error(stderr.trim() || err.message));
-      }
-      try {
-        resolve(JSON.parse(stdout));
-      } catch (e) {
+        const parsed = _findJSON(stdout);
+        if (parsed) return resolve(parsed);
         reject(new Error(`CLI output is not valid JSON: ${stdout.slice(0, 200)}`));
-      }
-    });
+      },
+    );
   });
+}
+
+/** Find and parse a JSON object from mixed output (last {}-line wins). */
+function _findJSON(text) {
+  if (!text) return null;
+  const lines = text.trim().split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith("{")) {
+      try { return JSON.parse(line); } catch (_) { /* continue */ }
+    }
+  }
+  try { return JSON.parse(text.trim()); } catch (_) { return null; }
 }
 
 /** Read JSON body from incoming POST request. */
