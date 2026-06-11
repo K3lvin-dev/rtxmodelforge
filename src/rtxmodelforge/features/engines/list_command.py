@@ -1,14 +1,46 @@
 from __future__ import annotations
 
+from typing import Annotated
+
+import typer
 from rich.table import Table
 
 from rtxmodelforge.features.engines import store
 from rtxmodelforge.shared.console import console
+from rtxmodelforge.shared.json_output import print_json
 
 
-def list_engines() -> None:
+def list_engines(
+    json: Annotated[
+        bool,
+        typer.Option("--json", help="Saida em formato JSON em vez de tabela rich."),
+    ] = False,
+) -> None:
     """Lista todos os engines compilados e seus detalhes."""
     engines = store.list_engines()
+
+    if json:
+        items = []
+        for _path, meta in engines:
+            items.append(
+                {
+                    "model_id": meta.model_id,
+                    "gpu_model": meta.gpu_model,
+                    "quantization": meta.quantization,
+                    "quality_label": meta.quality_label,
+                    "engine_mode": meta.engine_mode,
+                    "max_batch_size": meta.max_batch_size,
+                    "max_seq_len": meta.max_seq_len,
+                    "vram_used_gb": meta.vram_used_gb,
+                    "engine_size_gb": meta.engine_size_gb,
+                    "built_at": meta.built_at.isoformat(),
+                    "architecture": meta.architecture,
+                    "sm_version": meta.sm_version,
+                    "engine_path": str(meta.engine_path),
+                }
+            )
+        print_json({"engines": items, "count": len(items)})
+        return
 
     if not engines:
         console.print("[yellow]Nenhum engine encontrado em ~/.rtxmodelforge/engines/[/yellow]")
