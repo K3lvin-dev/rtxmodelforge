@@ -81,7 +81,7 @@ function execCLI(args) {
         if (err) {
           const parsed = _findJSON(stdout);
           if (parsed) return resolve(parsed);
-          return reject(new Error(stderr.trim() || stdout.trim() || err.message));
+          return reject(new Error(_cleanError(stderr) || _cleanError(stdout) || err.message));
         }
         const parsed = _findJSON(stdout);
         if (parsed) return resolve(parsed);
@@ -102,6 +102,28 @@ function _findJSON(text) {
     }
   }
   try { return JSON.parse(text.trim()); } catch (_) { return null; }
+}
+
+/** Clean error text: strip FutureWarnings, rich markup, and empty lines.
+    Returns the last meaningful line or text of significant content. */
+function _cleanError(text) {
+  if (!text) return "";
+  const filtered = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l =>
+      l.length > 0 &&
+      !l.includes("FutureWarning") &&
+      !l.includes("pynvml package is deprecated") &&
+      !l.includes("nvidia-ml-py") &&
+      !l.includes("import pynvml") &&
+      !l.includes("Skipping import") &&
+      !l.startsWith("╭") &&
+      !l.startsWith("╰") &&
+      !l.startsWith("│")
+    );
+  /* Use the last non-empty filtered line as the summary */
+  return filtered.length > 0 ? filtered[filtered.length - 1] : "";
 }
 
 /** Read JSON body from incoming POST request. */

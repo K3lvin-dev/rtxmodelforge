@@ -24,7 +24,7 @@ def build(
     model_id: Annotated[
         str,
         typer.Argument(help="ID do modelo no HuggingFace (ex: meta-llama/Llama-3.1-8B).")
-    ],
+    ] = "",
     verbose: Annotated[
         bool,
         typer.Option("--verbose", help="Exibe logs detalhados durante a compilacao.")
@@ -35,6 +35,13 @@ def build(
     ] = False,
 ) -> None:
     """Compila dois engines TensorRT-LLM otimizados (chat + serve) para sua GPU RTX."""
+
+    if not model_id:
+        if json:
+            print_json({"ok": False, "error": "Informe o MODEL_ID (ex: meta-llama/Llama-3.1-8B)"})
+            raise Exit(1)
+        error_console.print("[bold red]Erro:[/bold red] Informe o MODEL_ID do HuggingFace.")
+        raise Exit(1)
 
     gpu_profile = profile_gpu()
     if not gpu_profile:
