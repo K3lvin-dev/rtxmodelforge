@@ -1,0 +1,154 @@
+/* ── RTX Model Forge · Global Styles ── */
+
+@import "./tokens.css";
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 16px;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	background: var(--bg);
+	color: var(--ink);
+	font-family: var(--font-sans);
+	font-size: var(--text-md);
+	line-height: 1.5;
+	min-height: 100dvh;
+	overflow-x: hidden;
+	/* Chromium-only: use system color scheme for scrollbar */
+	color-scheme: dark;
+}
+
+/* ── Selection ── */
+::selection {
+	background: oklch(0.68 0.1 200 / 0.35);
+	color: var(--ink);
+}
+
+/* ── Focus ring ── */
+:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+
+/* ── Scrollbar (Chromium) ── */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: var(--faint);
+	border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--muted);
+}
+
+/* ── App shell ── */
+#root {
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+}
+
+/* ── Split layout shell ── */
+.app-shell {
+	display: flex;
+	min-height: 100dvh;
+	width: 100%;
+}
+
+.app-shell--split {
+	min-height: 100dvh;
+	/* No overflow: hidden here - let content scroll naturally */
+}
+
+.app-shell__main {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0; /* Prevent flex overflow */
+	min-height: 0; /* Allow content to scroll */
+	overflow-y: auto; /* Allow main content to scroll when split */
+}
+
+/* When chat is open, main area shrinks to 50% and chat takes the other half */
+.app-shell--split .app-shell__main {
+	flex: 1 1 50%;
+	max-width: 50%;
+}
+
+.app-shell--split > .chat {
+	flex: 1 1 50%;
+	max-width: 50%;
+	min-height: 100dvh; /* Match viewport height, allow growth */
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 900px) {
+	.app-shell--split {
+		flex-direction: column;
+		height: auto;
+	}
+	.app-shell--split .app-shell__main,
+	.app-shell--split > .chat {
+		max-width: 100%;
+		flex: 1 1 auto;
+		overflow-y: visible;
+	}
+	.app-shell--split > .chat {
+		position: static;
+		height: auto;
+		min-height: 50dvh;
+		border-left: none;
+		border-top: 1px solid var(--faint);
+	}
+}
+
+/* ── Skeleton animation ── */
+@keyframes skeleton-pulse {
+	0% {
+		opacity: 0.4;
+	}
+	50% {
+		opacity: 0.7;
+	}
+	100% {
+		opacity: 0.4;
+	}
+}
+
+.skeleton {
+	background: var(--faint);
+	border-radius: var(--radius-sm);
+	animation: skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+
+	.skeleton {
+		animation: none;
+		opacity: 0.5;
+	}
+}

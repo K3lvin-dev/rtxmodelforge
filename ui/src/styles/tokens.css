@@ -1,0 +1,131 @@
+/* ── RTX Model Forge · Design Tokens ── */
+/* OKLCH palette. Dual theme: dark (default) and light. */
+
+:root {
+	/* ── Typography ── */
+	--font-sans: "Inter", system-ui, -apple-system, sans-serif;
+	--font-mono:
+		"JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+
+	/* ── Scale (fixed rem, product register) ── */
+	--text-xs: 0.6875rem; /* 11px */
+	--text-sm: 0.75rem; /* 12px */
+	--text-base: 0.8125rem; /* 13px */
+	--text-md: 0.875rem; /* 14px */
+	--text-lg: 1rem; /* 16px */
+	--text-xl: 1.25rem; /* 20px */
+	--text-2xl: 1.5rem; /* 24px */
+	--text-3xl: 2rem; /* 32px */
+
+	/* ── Spacing ── */
+	--space-1: 0.25rem; /* 4px  */
+	--space-2: 0.5rem; /* 8px  */
+	--space-3: 0.75rem; /* 12px */
+	--space-4: 1rem; /* 16px */
+	--space-5: 1.25rem; /* 20px */
+	--space-6: 1.5rem; /* 24px */
+	--space-8: 2rem; /* 32px */
+	--space-10: 2.5rem; /* 40px */
+	--space-12: 3rem; /* 48px */
+	--space-16: 4rem; /* 64px */
+
+	/* ── Border radius ── */
+	--radius-sm: 3px;
+	--radius-md: 5px;
+	--radius-lg: 8px;
+
+	/* ── Motion ── */
+	--ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+	--ease-out-exp: cubic-bezier(0.19, 1, 0.22, 1);
+	--duration-fast: 100ms;
+	--duration-base: 150ms;
+	--duration-slow: 250ms;
+
+	/* ── Z-index scale ── */
+	--z-dropdown: 100;
+	--z-sticky: 200;
+	--z-header: 300;
+	--z-modal-backdrop: 400;
+	--z-modal: 500;
+	--z-toast: 600;
+	--z-tooltip: 700;
+}
+
+/* ── Dark theme (default) ── */
+:root,
+[data-theme="dark"] {
+	color-scheme: dark;
+
+	/* Surface */
+	--bg: oklch(0.08 0 0);
+	--surface: oklch(0.12 0 0);
+	--surface-hi: oklch(0.16 0 0);
+
+	/* Ink */
+	--ink: oklch(0.95 0 0);
+	--muted: oklch(0.55 0 0);
+	--faint: oklch(0.32 0 0);
+
+	/* Brand */
+	--primary: oklch(0.68 0.1 200);
+	--primary-hi: oklch(0.74 0.12 200);
+	--primary-lo: oklch(0.55 0.08 200);
+
+	/* Accent */
+	--accent: oklch(0.72 0.14 215);
+	--accent-hi: oklch(0.78 0.16 215);
+
+	/* Semantic */
+	--danger: oklch(0.62 0.18 25);
+	--danger-hi: oklch(0.68 0.2 25);
+	--warning: oklch(0.7 0.15 85);
+	--warning-hi: oklch(0.75 0.17 85);
+	--success: oklch(0.65 0.14 160);
+	--success-hi: oklch(0.7 0.15 160);
+
+	/* Transparent overlays */
+	--ink-12: oklch(0.95 0 0 / 0.12);
+	--ink-70: oklch(0.95 0 0 / 0.7);
+	--danger-30: oklch(0.62 0.18 25 / 0.3);
+	--danger-15: oklch(0.62 0.18 25 / 0.15);
+	--error-bg: oklch(0.2 0.02 25);
+}
+
+/* ── Light theme ── */
+[data-theme="light"] {
+	color-scheme: light;
+
+	/* Surface - cool gray ramp */
+	--bg: oklch(0.98 0.005 250);
+	--surface: oklch(0.95 0.008 250);
+	--surface-hi: oklch(0.9 0.012 250);
+
+	/* Ink - high contrast */
+	--ink: oklch(0.15 0 0);
+	--muted: oklch(0.45 0 0);
+	--faint: oklch(0.65 0 0);
+
+	/* Brand - adjusted for light bg */
+	--primary: oklch(0.55 0.12 200);
+	--primary-hi: oklch(0.6 0.14 200);
+	--primary-lo: oklch(0.5 0.1 200);
+
+	/* Accent */
+	--accent: oklch(0.58 0.16 215);
+	--accent-hi: oklch(0.63 0.18 215);
+
+	/* Semantic - darker for light bg */
+	--danger: oklch(0.55 0.2 25);
+	--danger-hi: oklch(0.6 0.22 25);
+	--warning: oklch(0.62 0.17 85);
+	--warning-hi: oklch(0.67 0.19 85);
+	--success: oklch(0.58 0.16 160);
+	--success-hi: oklch(0.63 0.18 160);
+
+	/* Transparent overlays - inverted for light theme */
+	--ink-12: oklch(0.15 0 0 / 0.12);
+	--ink-70: oklch(0.15 0 0 / 0.7);
+	--danger-30: oklch(0.55 0.2 25 / 0.3);
+	--danger-15: oklch(0.55 0.2 25 / 0.15);
+	--error-bg: oklch(0.95 0.02 25);
+}
