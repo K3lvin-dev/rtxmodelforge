@@ -3,8 +3,11 @@ from __future__ import annotations
 import shutil
 import subprocess
 from dataclasses import dataclass
+from typing import Optional
 
 from rtxmodelforge.shared import config, gpu
+from rtxmodelforge.shared.capabilities import get_architecture_capabilities
+from rtxmodelforge.shared.gpu_profiler import GPUProfile
 
 
 @dataclass
@@ -15,9 +18,10 @@ class CheckResult:
     blocking: bool = True
 
 
-def check_nvidia_driver() -> CheckResult:
+def check_nvidia_driver(gpu_info: Optional[GPUProfile] = None) -> CheckResult:
     """Verifica versão do driver NVIDIA."""
-    gpu_info = gpu.detect_gpu()
+    if gpu_info is None:
+        gpu_info = gpu.detect_gpu()
     if not gpu_info:
         return CheckResult("Driver NVIDIA", False, "Nenhuma GPU detectada.")
 
@@ -68,15 +72,20 @@ def check_libopenmpi() -> CheckResult:
         return CheckResult("OpenMPI (libopenmpi-dev)", False, "sudo apt-get install libopenmpi-dev")
 
 
-def check_gpu() -> CheckResult:
+def check_gpu(gpu_info: Optional[GPUProfile] = None) -> CheckResult:
     """Verifica presença da GPU e SM version."""
-    gpu_info = gpu.detect_gpu()
+    if gpu_info is None:
+        gpu_info = gpu.detect_gpu()
     if not gpu_info:
         return CheckResult(
             "GPU NVIDIA", False, "Nenhuma GPU NVIDIA detectada ou nvidia-smi falhou."
         )
 
-    detail = f"{gpu_info.name} (SM{gpu_info.sm_version}, {gpu_info.vram_free_gb:.1f}GB livres)"
+    capabilities = get_architecture_capabilities(gpu_info.sm_version)
+    detail = (
+        f"{gpu_info.name} ({capabilities.display_name}, SM{gpu_info.sm_version}, "
+        f"{gpu_info.vram_free_gb:.1f}GB livres)"
+    )
 
     # Check extra para multi-gpu (apenas aviso informativo no v1)
     try:
@@ -93,9 +102,10 @@ def check_gpu() -> CheckResult:
     return CheckResult("GPU NVIDIA", True, detail)
 
 
-def check_sm_support() -> CheckResult:
+def check_sm_support(gpu_info: Optional[GPUProfile] = None) -> CheckResult:
     """Verifica se a SM version é >= 80 (Ampere+)."""
-    gpu_info = gpu.detect_gpu()
+    if gpu_info is None:
+        gpu_info = gpu.detect_gpu()
     if not gpu_info:
         return CheckResult("Suporte de Arquitetura", False, "Dependente da detecção de GPU.")
 
@@ -106,7 +116,31 @@ def check_sm_support() -> CheckResult:
             False,
             f"SM{gpu_info.sm_version} não suportada. RTX série 20 e anteriores não compatíveis.",
         )
-    return CheckResult("Suporte de Arquitetura", True, f"SM{gpu_info.sm_version} suportada.")
+    capabilities = get_architecture_capabilities(gpu_info.sm_version)
+    return CheckResult(
+        "Suporte de Arquitetura",
+        True,
+        f"{capabilities.display_name} pronta para {', '.join(capabilities.tensor_core_precisions)}.",
+    )
+
+
+def check_tensor_core_modes(gpu_info: Optional[GPUProfile] = None) -> CheckResult:
+    """Exibe os modos acelerados relevantes para a arquitetura detectada."""
+    if gpu_info is None:
+        gpu_info = gpu.detect_gpu()
+    if not gpu_info:
+        return CheckResult("Tensor Core Modes", False, "Dependente da detecção de GPU.")
+
+    capabilities = get_architecture_capabilities(gpu_info.sm_version)
+    if not capabilities.tensor_core_precisions:
+        return CheckResult("Tensor Core Modes", False, "Arquitetura sem caminho acelerado.")
+
+    return CheckResult(
+        "Tensor Core Modes",
+        True,
+        f"Elegíveis: {', '.join(capabilities.tensor_core_precisions)} | ideal: {capabilities.ideal_label}",
+        blocking=False,
+    )
 
 
 def check_trtllm() -> CheckResult:
