@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 from pathlib import Path
 from typing import Final, List, Optional, Tuple
@@ -8,6 +9,8 @@ from rtxmodelforge.features.engines.types import CURRENT_SCHEMA_VERSION, EngineM
 from rtxmodelforge.shared import config
 from rtxmodelforge.shared.console import console
 from rtxmodelforge.shared.types import Quantization
+
+logger = logging.getLogger(__name__)
 
 METADATA_FILENAME: Final[str] = "engine.json"
 
@@ -49,6 +52,7 @@ def load_metadata(engine_path: Path) -> Optional[EngineMetadata]:
                 )
             return metadata
     except Exception:
+        logger.debug("Falha ao carregar metadata de %s", engine_path, exc_info=True)
         return None
 
 
