@@ -13,6 +13,10 @@ from rtxmodelforge.shared.console import console
 
 logger = logging.getLogger(__name__)
 
+# Cache em sessão para evitar re-download do config.json do HF
+# (fetch_params_billions é chamado antes do download completo e depois re-verificado)
+_params_billions_cache: dict[str, Optional[float]] = {}
+
 
 def _estimate_params_from_config(data: dict) -> Optional[float]:
     """Estima número de parâmetros a partir do config.json.
@@ -39,7 +43,14 @@ def _estimate_params_from_config(data: dict) -> Optional[float]:
 
 
 def fetch_params_billions(model_id: str, hf_token: Optional[str] = None) -> Optional[float]:
-    """Baixa apenas o config.json para estimar parametros antes do download completo."""
+    """Baixa apenas o config.json para estimar parametros antes do download completo.
+
+    Mantém cache em sessão por model_id para evitar re-download do mesmo config.json
+    (chamado em prepare_model + plan_build no mesmo fluxo).
+    """
+    if model_id in _params_billions_cache:
+        return _params_billions_cache[model_id]
+
     try:
         config_path = huggingface_hub.hf_hub_download(  # type: ignore
             repo_id=model_id,
@@ -49,11 +60,14 @@ def fetch_params_billions(model_id: str, hf_token: Optional[str] = None) -> Opti
         with open(config_path) as f:
             data = json.load(f)
 
-        return _estimate_params_from_config(data)
+        result = _estimate_params_from_config(data)
+        _params_billions_cache[model_id] = result
+        return result
 
     except Exception:
         logger.debug("Falha ao buscar/parsear config.json de %s", model_id, exc_info=True)
 
+    _params_billions_cache[model_id] = None
     return None
 
 

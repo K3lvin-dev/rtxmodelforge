@@ -10,6 +10,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 CONFIG_DIR: Final[Path] = Path.home() / ".rtxmodelforge"
 
+# Cache em memória para evitar re-leitura do TOML a cada chamada.
+# Invalide com invalidate_settings_cache() após salvar novo token.
+_cached_settings: Optional["Settings"] = None
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -52,7 +56,18 @@ def save_hf_token(token: str) -> None:
         f.write(tomli_w.dumps(config_data).encode("utf-8"))
 
     config_path.chmod(0o600)
+    invalidate_settings_cache()
 
 
 def get_settings() -> Settings:
-    return Settings.load()
+    """Retorna settings cacheados em memória. Use invalidate_settings_cache() para forçar releitura."""
+    global _cached_settings
+    if _cached_settings is None:
+        _cached_settings = Settings.load()
+    return _cached_settings
+
+
+def invalidate_settings_cache() -> None:
+    """Invalida o cache de settings para forçar releitura na próxima chamada."""
+    global _cached_settings
+    _cached_settings = None

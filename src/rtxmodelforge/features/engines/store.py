@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from pathlib import Path
 from typing import Final, List, Optional, Tuple
 
@@ -13,6 +14,11 @@ from rtxmodelforge.shared.types import Quantization
 logger = logging.getLogger(__name__)
 
 METADATA_FILENAME: Final[str] = "engine.json"
+
+# Cache em memória para load_metadata: evita re-parse de JSON no mesmo path.
+# TTL curto (5s) para capturar mudanças, mas evitar n+1 leituras no mesmo fluxo.
+_metadata_cache: dict[Path, tuple[float, Optional[EngineMetadata]]] = {}
+_METADATA_CACHE_TTL: float = 5.0
 
 
 class EngineNotFoundError(Exception):
@@ -33,11 +39,24 @@ def save_metadata(engine_path: Path, metadata: EngineMetadata) -> None:
     with metadata_path.open("w", encoding="utf-8") as f:
         f.write(metadata.model_dump_json(indent=2))
 
+    # Invalida cache para garantir que próxima leitura pegue a versão atualizada
+    _metadata_cache.pop(engine_path, None)
+
 
 def load_metadata(engine_path: Path) -> Optional[EngineMetadata]:
-    """Carrega o metadata de um engine. Emite warning se schema for antigo."""
+    """Carrega o metadata de um engine. Emite warning se schema for antigo.
+
+    Mantém cache em memória com TTL de {_METADATA_CACHE_TTL}s para evitar
+    re-parse de JSON no mesmo fluxo de execução.
+    """
+    now = time.monotonic()
+    cached = _metadata_cache.get(engine_path)
+    if cached is not None and now - cached[0] < _METADATA_CACHE_TTL:
+        return cached[1]
+
     metadata_path = engine_path / METADATA_FILENAME
     if not metadata_path.exists():
+        _metadata_cache[engine_path] = (now, None)
         return None
 
     try:
@@ -50,9 +69,11 @@ def load_metadata(engine_path: Path) -> Optional[EngineMetadata]:
                     f"v{metadata.schema_version} (atual: v{CURRENT_SCHEMA_VERSION}). "
                     "Recomenda-se recompilar.[/yellow]"
                 )
+            _metadata_cache[engine_path] = (now, metadata)
             return metadata
     except Exception:
         logger.debug("Falha ao carregar metadata de %s", engine_path, exc_info=True)
+        _metadata_cache[engine_path] = (now, None)
         return None
 
 
@@ -77,9 +98,22 @@ def delete_engine(engine_path: Path) -> None:
         raise EngineNotFoundError(f"Nenhum engine encontrado em {engine_path}")
 
     shutil.rmtree(engine_path)
+    _metadata_cache.pop(engine_path, None)
+
+
+# Cache para get_dir_size_gb — evita re-statar todos os arquivos do mesmo dir
+_dir_size_cache: dict[Path, tuple[float, float]] = {}
+_DIR_SIZE_CACHE_TTL: float = 30.0
 
 
 def get_dir_size_gb(path: Path) -> float:
-    """Calcula o tamanho de um diretório em GB."""
+    """Calcula o tamanho de um diretório em GB com cache TTL de {_DIR_SIZE_CACHE_TTL}s."""
+    now = time.monotonic()
+    cached = _dir_size_cache.get(path)
+    if cached is not None and now - cached[0] < _DIR_SIZE_CACHE_TTL:
+        return cached[1]
+
     total = sum(f.stat().st_size for f in path.glob("**/*") if f.is_file())
-    return total / 1e9
+    size_gb = total / 1e9
+    _dir_size_cache[path] = (now, size_gb)
+    return size_gb

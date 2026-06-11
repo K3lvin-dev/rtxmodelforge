@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -137,11 +138,28 @@ def _tensor_core_gen(sm_version: int) -> int:
         return 2  # Turing (nao suportado, mas mapeado)
 
 
+# Cache em memória para profile_gpu: evita chamar NVML init/shutdown múltiplas vezes
+# no mesmo fluxo de execução (ex: splash + serve + plan_runtime).
+# TTL curto (3s) pois VRAM livre muda frequentemente; o importante é evitar
+# n+1 chamadas no mesmo comando.
+_cached_profile: Optional[GPUProfile] = None
+_cached_profile_ts: float = 0.0
+_PROFILE_CACHE_TTL: float = 3.0
+
+
 def profile_gpu() -> Optional[GPUProfile]:
     """
     Detecta a GPU index 0 e retorna perfil completo com dados de performance.
     Usa pynvml como fonte principal, com fallbacks para cada campo.
+
+    Mantém cache em memória com TTL de {_PROFILE_CACHE_TTL}s para evitar
+    chamadas repetidas ao NVML no mesmo fluxo de comando.
     """
+    global _cached_profile, _cached_profile_ts
+    now = time.monotonic()
+    if _cached_profile is not None and now - _cached_profile_ts < _PROFILE_CACHE_TTL:
+        return _cached_profile
+
     try:
         pynvml.nvmlInit()
         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
@@ -184,7 +202,7 @@ def profile_gpu() -> Optional[GPUProfile]:
 
         pynvml.nvmlShutdown()
 
-        return GPUProfile(
+        result = GPUProfile(
             name=name,
             sm_version=sm_version,
             vram_total_gb=vram_total_gb,
@@ -197,13 +215,20 @@ def profile_gpu() -> Optional[GPUProfile]:
             vram_reserved_gb=vram_reserved_gb,
             bandwidth_from_lookup=bw_from_lookup,
         )
+        _cached_profile = result
+        _cached_profile_ts = time.monotonic()
+        return result
 
     except pynvml.NVMLError:
         try:
             pynvml.nvmlShutdown()
         except Exception:
             pass
-        return _profile_gpu_via_smi()
+        result = _profile_gpu_via_smi()
+        if result is not None:
+            _cached_profile = result
+            _cached_profile_ts = time.monotonic()
+        return result
 
 
 def _estimate_sm_count(sm_version: int, name: str) -> int:
