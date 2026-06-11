@@ -2,33 +2,85 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Annotated, Dict, List
+from typing import Dict, List, Optional
 
-import typer
 from rich.markdown import Markdown
 from typer import Exit
 
+from rtxmodelforge.features.build import pipeline
+from rtxmodelforge.features.build import types as build_types
+from rtxmodelforge.features.build.downloader import fetch_params_billions
 from rtxmodelforge.features.engines import store
+from rtxmodelforge.features.engines.types import EngineMetadata
+from rtxmodelforge.shared import config as shared_config
+from rtxmodelforge.shared.capabilities import AccelerationSelection, select_acceleration_mode
 from rtxmodelforge.shared.console import console, error_console
-from rtxmodelforge.shared.gpu_profiler import profile_gpu
+from rtxmodelforge.shared.gpu_profiler import GPUProfile, profile_gpu
 from rtxmodelforge.shared.panels import runtime_dashboard
 from rtxmodelforge.shared.runtime_planner import format_efficiency, plan_runtime
 from rtxmodelforge.shared.tokenizer_cache import get_tokenizer
 
 
-def chat(
-    engine_path: Annotated[
-        Path, typer.Argument(help="Caminho para o diretório do engine compilado.")
-    ],
-    system_prompt: Annotated[
-        str, typer.Option("--system", help="Instrução inicial do sistema.")
-    ] = "Você é um assistente prestativo e especializado em hardware NVIDIA.",
-    max_tokens: Annotated[
-        int, typer.Option("--max-tokens", help="Máximo de novos tokens por resposta.")
-    ] = 512,
-) -> None:
-    """Inicia um chat interativo no terminal usando o engine compilado."""
+def prepare_model(
+    model_id: str, verbose: bool = False
+) -> tuple[Path, Path, GPUProfile, AccelerationSelection]:
+    gpu_profile = profile_gpu()
+    if not gpu_profile:
+        error_console.print("[bold red]✘ Nenhuma GPU NVIDIA compatível detectada.[/bold red]")
+        raise Exit(1)
 
+    settings = shared_config.get_settings()
+    params_est = fetch_params_billions(model_id, settings.hf_token) or 8.0
+    selection = select_acceleration_mode(gpu_profile, params_est)
+
+    chat_engine_dir = store.get_engine_dir(model_id, selection.quantization, "chat")
+    serve_engine_dir = store.get_engine_dir(model_id, selection.quantization, "serve")
+
+    if _is_engine_optimal(store.load_metadata(chat_engine_dir), selection) and _is_engine_optimal(
+        store.load_metadata(serve_engine_dir), selection
+    ):
+        console.print(
+            f"[green]Usando cache otimizado existente:[/green] "
+            f"{selection.tensor_core_path_label} em {selection.architecture_label}."
+        )
+        return chat_engine_dir, serve_engine_dir, gpu_profile, selection
+
+    build_conf = build_types.BuildConfig(
+        model_id=model_id,
+        weights_dir=Path("tmp"),
+        gpu_info=gpu_profile,
+        quantization=selection.quantization,
+        quality_label=selection.quality_label,
+        rationale=selection.rationale,
+        params_billions=params_est,
+        verbose=verbose,
+        target_precision=selection.desired_precision,
+        effective_precision=selection.effective_precision,
+        acceleration_class=selection.acceleration_class,
+        target_architecture=selection.architecture,
+        fallback_reason=selection.fallback_reason or "",
+    )
+    chat_path, serve_path = pipeline.run(build_conf)
+    return chat_path, serve_path, gpu_profile, selection
+
+
+def _is_engine_optimal(
+    metadata: Optional[EngineMetadata], selection: AccelerationSelection
+) -> bool:
+    if metadata is None:
+        return False
+    return (
+        metadata.quantization.lower() == selection.quantization.value
+        and metadata.target_architecture == selection.architecture.value
+        and metadata.target_precision == selection.desired_precision
+        and metadata.effective_precision == selection.effective_precision
+        and metadata.acceleration_class == selection.acceleration_class.value
+        and (metadata.fallback_reason or "") == (selection.fallback_reason or "")
+    )
+
+
+def _chat_with_engine(engine_path: Path, system_prompt: str, max_tokens: int) -> None:
+    """Executa loop de chat interativo com o engine compilado."""
     meta = store.load_metadata(engine_path)
     if not meta:
         error_console.print(
@@ -39,17 +91,17 @@ def chat(
     if meta.engine_mode != "chat":
         error_console.print(
             f"[bold yellow]⚠ Este engine foi compilado para modo '{meta.engine_mode}'.[/bold yellow]\n"
-            "  Para chat, use um engine compilado com modo 'chat' (batch=1).\n"
-            "  Dica: use o diretório com sufixo '-chat', ex: .../fp8-chat/"
+            " Para chat, use um engine compilado com modo 'chat' (batch=1).\n"
+            " Dica: use o diretório com sufixo '-chat', ex: .../fp8-chat/"
         )
         raise Exit(1)
 
     try:
         from tensorrt_llm._tensorrt_engine import LLM  # pyright: ignore[reportMissingImports]
-        from tensorrt_llm.llmapi import (
+        from tensorrt_llm.llmapi import (  # pyright: ignore[reportMissingImports]
             KvCacheConfig,
             SamplingParams,
-        )  # pyright: ignore[reportMissingImports]
+        )
     except ImportError:
         error_console.print(
             "[bold red]✘ Dependências ausentes (tensorrt_llm ou transformers).[/bold red]"
@@ -61,7 +113,6 @@ def chat(
     )
 
     try:
-        # Detectar GPU e calcular plano de runtime
         gpu_profile = profile_gpu()
         if gpu_profile is None:
             error_console.print("[bold red]✘ GPU não detectada.[/bold red]")
@@ -75,9 +126,12 @@ def chat(
             engine_mode=meta.engine_mode,
             max_batch_size=meta.max_batch_size,
             engine_size_gb=meta.engine_size_gb,
+            architecture_label=meta.target_architecture or gpu_profile.architecture.value,
+            acceleration_class=meta.acceleration_class or "modo acelerado parcial",
+            tensor_core_path_label=meta.effective_precision or meta.quantization.upper(),
+            fallback_reason=meta.fallback_reason or None,
         )
 
-        # Exibir dashboard antes de carregar o engine
         console.print(runtime_dashboard(runtime_plan))
 
         if runtime_plan.vram_warning:

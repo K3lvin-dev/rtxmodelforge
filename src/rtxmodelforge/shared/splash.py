@@ -6,12 +6,15 @@ from rich import box
 from rich.panel import Panel
 
 from rtxmodelforge import __version__
-from rtxmodelforge.features.engines.store import list_engines
 from rtxmodelforge.shared.gpu_profiler import profile_gpu
 
 
 def build_splash_data() -> dict[str, Any]:
-    """Coleta dados dinâmicos para o splash (GPU, engines). Nunca levanta exceção."""
+    """Coleta dados dinâmicos para o splash (GPU, engines). Nunca levanta exceção.
+
+    Usa profile_gpu() cacheado (Phase 1) e count rápido de diretórios de engine
+    em vez de list_engines() completo para evitar I/O desnecessário no startup.
+    """
     try:
         gpu = profile_gpu()
         gpu_name = gpu.name if gpu else None
@@ -21,7 +24,14 @@ def build_splash_data() -> dict[str, Any]:
         vram_gb = None
 
     try:
-        engine_count = len(list_engines())
+        from rtxmodelforge.shared import config as shared_config
+        settings = shared_config.get_settings()
+        # Contagem rápida: conta diretórios de engine (cada engine tem engine.json)
+        # sem fazer parse de todos os metadados — muito mais rápido que list_engines()
+        engine_count = sum(
+            1 for _ in settings.engines_dir.rglob("engine.json")
+            if _.is_file()
+        )
     except Exception:
         engine_count = 0
 
