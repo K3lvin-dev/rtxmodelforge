@@ -4,6 +4,8 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
+from rich.live import Live
+
 from rtxmodelforge.features.build import downloader, engine_builder
 from rtxmodelforge.features.build import types as build_types
 from rtxmodelforge.features.engines import store
@@ -49,48 +51,55 @@ def run(config: build_types.BuildConfig) -> tuple[Path, Path]:
 
     weights_dir = chat_engine_dir / "weights"
 
-    def update_display():
-        console.clear()
-        console.print(stage_table(stages))
-
     from rtxmodelforge.shared import config as shared_config
     settings = shared_config.get_settings()
 
+    # Rich Live para atualização incremental sem flicker de console.clear()
+    live = Live(
+        stage_table(stages),
+        console=console,
+        refresh_per_second=4,
+        transient=False,
+    )
+
     try:
-        # Stage 1: Download (apenas se pesos ainda nao existem)
-        if not weights_dir.exists():
-            stages[0].status = StageStatus.RUNNING
-            update_display()
+        with live:
+            # Stage 1: Download (apenas se pesos ainda nao existem)
+            if not weights_dir.exists():
+                stages[0].status = StageStatus.RUNNING
+                live.update(stage_table(stages))
+                start = time.time()
+                downloader.download_weights(
+                    model_id=config.model_id,
+                    target_dir=chat_engine_dir,
+                    hf_token=settings.hf_token,
+                    verbose=config.verbose,
+                )
+                stages[0].duration_s = time.time() - start
+            stages[0].status = StageStatus.DONE
+            live.update(stage_table(stages))
+
+            # Stage 2: Read params + BuildPlan
+            stages[1].status = StageStatus.RUNNING
+            live.update(stage_table(stages))
             start = time.time()
-            downloader.download_weights(
-                model_id=config.model_id,
-                target_dir=chat_engine_dir,
-                hf_token=settings.hf_token,
-                verbose=config.verbose,
+
+            config.weights_dir = weights_dir
+            config.params_billions = downloader.read_params_billions(weights_dir)
+
+            arch = read_model_arch(weights_dir)
+            chat_plan, serve_plan = plan_build(
+                profile=config.gpu_info,
+                params_b=config.params_billions,
+                quantization=config.quantization,
+                arch=arch,
             )
-            stages[0].duration_s = time.time() - start
-        stages[0].status = StageStatus.DONE
 
-        # Stage 2: Read params + BuildPlan
-        stages[1].status = StageStatus.RUNNING
-        update_display()
-        start = time.time()
+            stages[1].duration_s = time.time() - start
+            stages[1].status = StageStatus.DONE
+            live.update(stage_table(stages))
 
-        config.weights_dir = weights_dir
-        config.params_billions = downloader.read_params_billions(weights_dir)
-
-        arch = read_model_arch(weights_dir)
-        chat_plan, serve_plan = plan_build(
-            profile=config.gpu_info,
-            params_b=config.params_billions,
-            quantization=config.quantization,
-            arch=arch,
-        )
-
-        stages[1].duration_s = time.time() - start
-        stages[1].status = StageStatus.DONE
-
-        # Atualiza o display para mostrar os planos calculados
+        # Exibe planos calculados (fora do Live para evitar flicker com texto extra)
         console.print(
             f"\n  [bold cyan]Chat:[/bold cyan] {chat_plan.summary}"
             f"\n  [bold cyan]Serve:[/bold cyan] {serve_plan.summary}\n"
@@ -104,76 +113,79 @@ def run(config: build_types.BuildConfig) -> tuple[Path, Path]:
         except ImportError:
             pass
 
-        # Stage 3: Compilar engine CHAT (se ainda nao existe)
-        if not chat_exists:
-            stages[2].status = StageStatus.RUNNING
-            update_display()
+        with live:
+            # Stage 3: Compilar engine CHAT (se ainda nao existe)
+            if not chat_exists:
+                stages[2].status = StageStatus.RUNNING
+                live.update(stage_table(stages))
+                start = time.time()
+
+                chat_config = replace(
+                    config,
+                    engine_mode=EngineMode.CHAT,
+                    max_batch_size=chat_plan.max_batch_size,
+                    max_seq_len=chat_plan.max_seq_len,
+                    enable_chunked_context=chat_plan.enable_chunked_context,
+                )
+                engine_builder.build_engine(chat_config, chat_engine_dir)
+
+                stages[2].duration_s = time.time() - start
+            stages[2].status = StageStatus.DONE
+            live.update(stage_table(stages))
+
+            # Stage 4: Compilar engine SERVE (se ainda nao existe)
+            if not serve_exists:
+                stages[3].status = StageStatus.RUNNING
+                live.update(stage_table(stages))
+                start = time.time()
+
+                serve_config = replace(
+                    config,
+                    engine_mode=EngineMode.SERVE,
+                    max_batch_size=serve_plan.max_batch_size,
+                    max_seq_len=serve_plan.max_seq_len,
+                    enable_chunked_context=serve_plan.enable_chunked_context,
+                )
+                engine_builder.build_engine(serve_config, serve_engine_dir)
+
+                stages[3].duration_s = time.time() - start
+            stages[3].status = StageStatus.DONE
+            live.update(stage_table(stages))
+
+            # Stage 5: Metadados
+            stages[4].status = StageStatus.RUNNING
+            live.update(stage_table(stages))
             start = time.time()
 
-            chat_config = replace(
-                config,
-                engine_mode=EngineMode.CHAT,
-                max_batch_size=chat_plan.max_batch_size,
-                max_seq_len=chat_plan.max_seq_len,
-                enable_chunked_context=chat_plan.enable_chunked_context,
-            )
-            engine_builder.build_engine(chat_config, chat_engine_dir)
+            vram_snapshot_gb = config.gpu_info.vram_total_gb - config.gpu_info.vram_free_gb
 
-            stages[2].duration_s = time.time() - start
-        stages[2].status = StageStatus.DONE
+            for plan, engine_dir in (
+                (chat_plan, chat_engine_dir),
+                (serve_plan, serve_engine_dir),
+            ):
+                metadata = engine_types.EngineMetadata(
+                    model_id=config.model_id,
+                    gpu_model=config.gpu_info.name,
+                    sm_version=config.gpu_info.sm_version,
+                    quantization=config.quantization,
+                    quality_label=config.quality_label,
+                    quantization_rationale=config.rationale,
+                    trtllm_version=trt_ver,
+                    engine_path=str(engine_dir),
+                    params_billions=config.params_billions,
+                    vram_used_gb=vram_snapshot_gb,
+                    engine_size_gb=store.get_dir_size_gb(engine_dir),
+                    architecture="desconhecida",
+                    max_seq_len=plan.max_seq_len,
+                    engine_mode=plan.mode.value,
+                    max_batch_size=plan.max_batch_size,
+                    build_plan_summary=plan.summary,
+                )
+                store.save_metadata(engine_dir, metadata)
 
-        # Stage 4: Compilar engine SERVE (se ainda nao existe)
-        if not serve_exists:
-            stages[3].status = StageStatus.RUNNING
-            update_display()
-            start = time.time()
-
-            serve_config = replace(
-                config,
-                engine_mode=EngineMode.SERVE,
-                max_batch_size=serve_plan.max_batch_size,
-                max_seq_len=serve_plan.max_seq_len,
-                enable_chunked_context=serve_plan.enable_chunked_context,
-            )
-            engine_builder.build_engine(serve_config, serve_engine_dir)
-
-            stages[3].duration_s = time.time() - start
-        stages[3].status = StageStatus.DONE
-
-        # Stage 5: Metadados
-        stages[4].status = StageStatus.RUNNING
-        update_display()
-        start = time.time()
-
-        vram_snapshot_gb = config.gpu_info.vram_total_gb - config.gpu_info.vram_free_gb
-
-        for plan, engine_dir in (
-            (chat_plan, chat_engine_dir),
-            (serve_plan, serve_engine_dir),
-        ):
-            metadata = engine_types.EngineMetadata(
-                model_id=config.model_id,
-                gpu_model=config.gpu_info.name,
-                sm_version=config.gpu_info.sm_version,
-                quantization=config.quantization,
-                quality_label=config.quality_label,
-                quantization_rationale=config.rationale,
-                trtllm_version=trt_ver,
-                engine_path=str(engine_dir),
-                params_billions=config.params_billions,
-                vram_used_gb=vram_snapshot_gb,
-                engine_size_gb=store.get_dir_size_gb(engine_dir),
-                architecture="desconhecida",
-                max_seq_len=plan.max_seq_len,
-                engine_mode=plan.mode.value,
-                max_batch_size=plan.max_batch_size,
-                build_plan_summary=plan.summary,
-            )
-            store.save_metadata(engine_dir, metadata)
-
-        stages[4].duration_s = time.time() - start
-        stages[4].status = StageStatus.DONE
-        update_display()
+            stages[4].duration_s = time.time() - start
+            stages[4].status = StageStatus.DONE
+            live.update(stage_table(stages))
 
         return chat_engine_dir, serve_engine_dir
 
@@ -181,5 +193,9 @@ def run(config: build_types.BuildConfig) -> tuple[Path, Path]:
         for stage in stages:
             if stage.status == StageStatus.RUNNING:
                 stage.status = StageStatus.FAILED
-        update_display()
+        try:
+            live.update(stage_table(stages))
+            live.stop()
+        except Exception:
+            pass
         raise e
