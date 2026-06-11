@@ -11,6 +11,7 @@ from rtxmodelforge.features.engines import store
 from rtxmodelforge.shared.cli_decorators import handle_cli_errors
 from rtxmodelforge.shared.console import console, error_console
 from rtxmodelforge.shared.gpu_profiler import profile_gpu
+from rtxmodelforge.shared.json_output import print_json
 from rtxmodelforge.shared.panels import runtime_dashboard
 from rtxmodelforge.shared.runtime_planner import plan_runtime
 from rtxmodelforge.shared.workflow import prepare_model
@@ -28,34 +29,48 @@ def serve(
     verbose: Annotated[
         bool, typer.Option("--verbose", help="Exibe logs detalhados na preparacao.")
     ] = False,
+    json: Annotated[
+        bool,
+        typer.Option("--json", help="Saida em formato JSON."),
+    ] = False,
 ) -> None:
     """Prepara automaticamente o melhor artefato para Tensor Cores e sobe API local."""
     if engine_path is None:
         if model_id is None:
+            if json:
+                print_json({"ok": False, "error": "Informe um model_id ou --engine-path."})
+                raise Exit(1)
             error_console.print("[bold red]✘ Informe um model_id ou --engine-path.[/bold red]")
             raise Exit(1)
         _chat_engine, engine_path, _gpu, selection = prepare_model(model_id, verbose=verbose)
-        console.print(
-            f"[bold green]Modo acelerado escolhido para sua RTX:[/bold green] "
-            f"{selection.tensor_core_path_label} ({selection.acceleration_class.value})"
-        )
+        if not json:
+            console.print(
+                f"[bold green]Modo acelerado escolhido para sua RTX:[/bold green] "
+                f"{selection.tensor_core_path_label} ({selection.acceleration_class.value})"
+            )
 
     meta = store.load_metadata(engine_path)
     if not meta:
+        if json:
+            print_json({"ok": False, "error": f"Nenhum engine valido em: {engine_path}"})
+            raise Exit(1)
         error_console.print(f"[bold red]✘ Nenhum engine valido em:[/bold red] {engine_path}")
         raise Exit(1) from None
 
     if meta.engine_mode != "serve":
-        error_console.print(
-            f"[bold yellow]⚠ Este engine foi compilado para modo '{meta.engine_mode}'.[/bold yellow]\n"
-            "  Para serve, use um engine compilado com modo 'serve' (multi-batch).\n"
-            "  Dica: use o diretorio com sufixo '-serve', ex: .../fp8-serve/"
-        )
+        msg = f"Engine compilado para modo '{meta.engine_mode}', nao 'serve'."
+        if json:
+            print_json({"ok": False, "error": msg})
+            raise Exit(1)
+        error_console.print(f"[bold yellow]⚠ {msg}[/bold yellow]")
         raise Exit(1)
 
     # Detectar GPU e calcular plano de runtime
     gpu_profile = profile_gpu()
     if gpu_profile is None:
+        if json:
+            print_json({"ok": False, "error": "GPU nao detectada."})
+            raise Exit(1)
         error_console.print("[bold red]✘ GPU nao detectada.[/bold red]")
         raise Exit(1)
 
@@ -72,6 +87,18 @@ def serve(
         tensor_core_path_label=meta.effective_precision or meta.quantization.upper(),
         fallback_reason=meta.fallback_reason or None,
     )
+
+    if json:
+        print_json({
+            "ok": True,
+            "output": f"Servidor pronto para iniciar em http://{host}:{port}",
+            "model_id": meta.model_id,
+            "port": port,
+            "host": host,
+            "max_batch_size": runtime_plan.max_batch_size,
+            "engine_path": str(engine_path),
+        })
+        return
 
     console.print("\n[bold blue]Iniciando Servidor de Inferencia[/bold blue]")
     console.print(runtime_dashboard(runtime_plan))

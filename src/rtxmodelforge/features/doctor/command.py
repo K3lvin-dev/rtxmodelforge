@@ -1,26 +1,64 @@
 from __future__ import annotations
 
+from typing import Annotated
+
+import typer
 from rich.live import Live
 from rich.table import Table
 from typer import Exit
 
+from rtxmodelforge import __version__
 from rtxmodelforge.features.doctor import checks
 from rtxmodelforge.shared.capabilities import AccelerationClass, summarize_doctor
 from rtxmodelforge.shared.console import console
 from rtxmodelforge.shared.gpu_profiler import profile_gpu
+from rtxmodelforge.shared.json_output import print_json
 
 
-def doctor() -> None:
+def doctor(
+    json: Annotated[
+        bool,
+        typer.Option("--json", help="Saida em formato JSON em vez de tabela rich."),
+    ] = False,
+) -> None:
     """Verifica a saude do ambiente (GPU, Driver, CUDA)."""
+    gpu_profile = profile_gpu()
+    trtllm_res = checks.check_trtllm()
+    cuda_res = checks.check_cuda_toolkit()
+    summary = summarize_doctor(gpu_profile, trtllm_res.passed, cuda_res.passed)
+
+    if json:
+        gpu_data = None
+        if gpu_profile:
+            gpu_data = {
+                "name": gpu_profile.name,
+                "sm_version": gpu_profile.sm_version,
+                "vram_total_gb": gpu_profile.vram_total_gb,
+                "vram_free_gb": gpu_profile.vram_free_gb,
+                "driver_version": gpu_profile.driver_version,
+                "detected": True,
+            }
+        print_json(
+            {
+                "gpu": gpu_data,
+                "version": __version__,
+                "readiness": summary.readiness.value,
+                "best_path": summary.best_path_label,
+                "detail": summary.detail,
+                "trtllm_installed": trtllm_res.passed,
+                "cuda_ok": cuda_res.passed,
+            }
+        )
+        if not gpu_profile or gpu_profile.sm_version < 80:
+            raise Exit(1)
+        return
+
     console.print("[bold blue]RTX Model Forge — Diagnostico do Sistema[/bold blue]\n")
 
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Status", width=6, justify="center")
     table.add_column("Verificacao", width=30)
     table.add_column("Detalhe", ratio=1)
-
-    # Profile GPU uma vez e passa para todos os checks que precisam
-    gpu_profile = profile_gpu()
 
     check_list = [
         lambda: checks.check_gpu(gpu_profile),
@@ -48,10 +86,6 @@ def doctor() -> None:
 
             if not res.passed and res.blocking:
                 has_failed = True
-
-    trtllm_res = checks.check_trtllm()
-    cuda_res = checks.check_cuda_toolkit()
-    summary = summarize_doctor(gpu_profile, trtllm_res.passed, cuda_res.passed)
 
     style = {
         AccelerationClass.IDEAL: "bold green",
