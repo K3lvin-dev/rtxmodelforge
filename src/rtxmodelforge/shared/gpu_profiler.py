@@ -320,3 +320,54 @@ def theoretical_max_tps(profile: GPUProfile, params_b: float, bytes_per_param: f
     if model_size_gb <= 0:
         return 0.0
     return profile.memory_bandwidth_gbs / model_size_gb
+
+
+def read_gpu_metrics() -> dict[str, float]:
+    """Le metricas em tempo real da GPU 0 via pynvml.
+
+    Returns dict com temperature (C), utilization (%), clock_core (MHz),
+    clock_mem (MHz). Retorna dict vazio se pynvml falhar.
+    """
+    try:
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+
+        temp = -1
+        try:
+            temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
+        except (pynvml.NVMLError, AttributeError):
+            pass
+
+        util = -1
+        try:
+            rates = pynvml.nvmlDeviceGetUtilizationRates(handle)
+            util = rates.gpu
+        except (pynvml.NVMLError, AttributeError):
+            pass
+
+        clock_core = -1
+        try:
+            clock_core = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_GRAPHICS)
+        except (pynvml.NVMLError, AttributeError):
+            pass
+
+        clock_mem = -1
+        try:
+            clock_mem = pynvml.nvmlDeviceGetClockInfo(handle, pynvml.NVML_CLOCK_MEM)
+        except (pynvml.NVMLError, AttributeError):
+            pass
+
+        pynvml.nvmlShutdown()
+
+        return {
+            "temperature": float(temp) if temp >= 0 else 0,
+            "utilization": float(util) if util >= 0 else 0,
+            "clock_core": float(clock_core) if clock_core >= 0 else 0,
+            "clock_mem": float(clock_mem) if clock_mem >= 0 else 0,
+        }
+    except pynvml.NVMLError:
+        try:
+            pynvml.nvmlShutdown()
+        except Exception:
+            pass
+        return {"temperature": 0, "utilization": 0, "clock_core": 0, "clock_mem": 0}

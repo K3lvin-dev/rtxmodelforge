@@ -143,10 +143,10 @@ async function handleState(req, res) {
       vramUsed: gpu.vram_free_gb
         ? Math.round((gpu.vram_total_gb - gpu.vram_free_gb) * 1024)
         : 0,
-      temperature: 0,
-      utilization: 0,
-      clockCore: 0,
-      clockMem: 0,
+      temperature: gpu.temperature || 0,
+      utilization: gpu.utilization || 0,
+      clockCore: gpu.clock_core || 0,
+      clockMem: gpu.clock_mem || 0,
       detected: gpu.detected || false,
     };
 

@@ -11,7 +11,7 @@ from rtxmodelforge import __version__
 from rtxmodelforge.features.doctor import checks
 from rtxmodelforge.shared.capabilities import AccelerationClass, summarize_doctor
 from rtxmodelforge.shared.console import console
-from rtxmodelforge.shared.gpu_profiler import profile_gpu
+from rtxmodelforge.shared.gpu_profiler import profile_gpu, read_gpu_metrics
 from rtxmodelforge.shared.json_output import print_json
 
 
@@ -30,6 +30,7 @@ def doctor(
     if json:
         gpu_data = None
         if gpu_profile:
+            metrics = read_gpu_metrics()
             gpu_data = {
                 "name": gpu_profile.name,
                 "sm_version": gpu_profile.sm_version,
@@ -37,6 +38,10 @@ def doctor(
                 "vram_free_gb": gpu_profile.vram_free_gb,
                 "driver_version": gpu_profile.driver_version,
                 "detected": True,
+                "temperature": metrics["temperature"],
+                "utilization": metrics["utilization"],
+                "clock_core": metrics["clock_core"],
+                "clock_mem": metrics["clock_mem"],
             }
         print_json(
             {
