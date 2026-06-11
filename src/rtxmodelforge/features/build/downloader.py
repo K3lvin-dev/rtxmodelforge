@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 def _estimate_params_from_config(data: dict) -> Optional[float]:
-    """Estima numero de parametros a partir do config.json.
+    """Estima número de parâmetros a partir do config.json.
 
-    Tenta campo explicito 'num_parameters', senao calcula via arquitetura
+    Tenta campo explícito 'num_parameters', senão calcula via arquitetura
     (Llama, Mistral, Qwen2, etc.).
     """
     if "num_parameters" in data:
@@ -29,7 +29,7 @@ def _estimate_params_from_config(data: dict) -> Optional[float]:
     v = data.get("vocab_size", 32000)
 
     if h and num_layers and i:
-        # Aproximacao simplificada: (Embeddings + Layers(Self-Attn + MLP))
+        # Aproximação simplificada: (Embeddings + Layers(Self-Attn + MLP))
         # MLP costuma ser 3 * intermediate_size * hidden_size (Gate, Up, Down)
         # Attn costuma ser 4 * hidden_size^2 (Q, K, V, O)
         params = v * h + num_layers * (4 * h**2 + 3 * i * h)
