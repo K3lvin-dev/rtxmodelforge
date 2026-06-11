@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -8,6 +9,8 @@ from typing import Optional
 
 from rtxmodelforge.shared.gpu_profiler import GPUProfile, theoretical_max_tps
 from rtxmodelforge.shared.types import Quantization
+
+logger = logging.getLogger(__name__)
 
 # Tokens por bloco de KV cache do TRT-LLM (deve ser multiplo exato)
 _KV_TOKENS_PER_BLOCK: int = 32
@@ -17,7 +20,7 @@ _BUILD_OVERHEAD_GB: float = 0.8
 
 # Minimo e maximo seguros de max_seq_len para compilacao
 _MIN_SEQ_LEN: int = 2048
-_MAX_SEQ_LEN: int = 32768
+_MAX_SEQ_LEN: int = 131072
 
 # Fator de seguranca: nao usar 100% da VRAM calculada (deixa margem para variacao)
 _SAFETY_FACTOR: float = 0.85
@@ -97,6 +100,7 @@ def read_model_arch(weights_dir: Path) -> Optional[ModelArchParams]:
             max_position_embeddings=int(max_pos),
         )
     except Exception:
+        logger.debug("Falha ao parsear config.json em %s", weights_dir, exc_info=True)
         return None
 
 
@@ -124,6 +128,29 @@ def _snap_to_multiple(value: int, multiple: int) -> int:
     return max(multiple, (value // multiple) * multiple)
 
 
+def _practical_seq_len_cap(params_b: float) -> int:
+    """
+    Cap de contexto baseado no tamanho do modelo para performance otimizada.
+
+    Modelos menores têm KV cache proporcionalmente mais barato, mas compilar
+    e alocar para 32K quando o modelo tem 1.5B params gera overhead desnecessário.
+    O cap é derivado da relação entre params_b e a janela de atenção prática:
+    mais params → mais camadas/heads → KV cache cresce → contexto útil menor.
+
+    Pode ser sobreposto pelo max_position_embeddings do modelo (via min() no chamador).
+    """
+    if params_b <= 2.0:
+        return 8_192     # 1-2B: 8K mais que suficiente; overhead de 32K é 4× desnecessário
+    elif params_b <= 4.0:
+        return 16_384    # 3-4B: 16K equilibra contexto e latência de build
+    elif params_b <= 8.0:
+        return 32_768    # 5-8B: 32K razoável para modelos médios
+    elif params_b <= 14.0:
+        return 65_536    # 9-14B: 64K onde modelos tendem a precisar de contexto longo
+    else:
+        return 131_072   # 14B+: máximo — modelos grandes ganham com contexto amplo
+
+
 def _bytes_per_model_param(quantization: Quantization) -> float:
     if quantization in (Quantization.FP8, Quantization.INT8):
         return 1.0
@@ -137,10 +164,16 @@ def _calc_max_seq_len(
     batch_size: int,
     arch: ModelArchParams,
     quantization: Quantization,
+    params_b: float,
 ) -> int:
     """
     Calcula o max_seq_len que cabe na VRAM disponivel para o KV cache.
     O TRT-LLM aloca KV cache para max_batch_size * max_seq_len tokens no worst case.
+
+    O resultado é limitado por três fatores em ordem de prioridade:
+      1. VRAM disponível para KV cache (hardware constraint)
+      2. max_position_embeddings do modelo (model constraint)
+      3. Cap prático baseado em params_b (performance constraint)
     """
     kv_per_token_gb = _kv_cache_gb_per_token(arch, quantization)
     if kv_per_token_gb <= 0:
@@ -154,8 +187,11 @@ def _calc_max_seq_len(
     max_tokens_total = int(safe_vram_gb / kv_per_token_gb)
     max_seq = max_tokens_total // batch_size
 
-    # Limita pelo max_position_embeddings do modelo
+    # Limita pelo max_position_embeddings do modelo (capacidade do modelo)
     max_seq = min(max_seq, arch.max_position_embeddings)
+    # Limita pelo cap prático baseado no tamanho do modelo (performance)
+    max_seq = min(max_seq, _practical_seq_len_cap(params_b))
+    # Limita pelo teto absoluto e garante mínimo seguro
     max_seq = min(max_seq, _MAX_SEQ_LEN)
     max_seq = max(max_seq, _MIN_SEQ_LEN)
 
@@ -198,7 +234,7 @@ def plan_build(
 
     # --- Chat Plan (single user, maximiza seq_len) ---
     chat_batch = 1
-    chat_seq = _calc_max_seq_len(available_for_kv, chat_batch, arch, quantization)
+    chat_seq = _calc_max_seq_len(available_for_kv, chat_batch, arch, quantization, params_b)
     chat_kv_gb = kv_per_token_gb * chat_batch * chat_seq
     chat_tps = theoretical_max_tps(profile, params_b, bytes_per_param)
 
@@ -218,7 +254,7 @@ def plan_build(
     # --- Serve Plan (multi-client, balanceia batch e seq_len) ---
     # Heuristica: batch = floor(available_vram / 0.5 GB), limitado a 2..16
     serve_batch = min(16, max(2, int(available_for_kv / 0.5)))
-    serve_seq = _calc_max_seq_len(available_for_kv, serve_batch, arch, quantization)
+    serve_seq = _calc_max_seq_len(available_for_kv, serve_batch, arch, quantization, params_b)
     # Para serve, min seq_len e 2048 (conversas de API tendem a ser mais curtas)
     serve_seq = max(serve_seq, 2048)
     serve_kv_gb = kv_per_token_gb * serve_batch * serve_seq
